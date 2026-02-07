@@ -63,7 +63,7 @@ const DEFAULT_ADVISOR_IDS = ['em', 'wb', 'sn'];
 
 function formatShareText(date: string, result: AnalysisResult): string {
   const lines = [
-    `📅 ${date} Daily CEO Planner`,
+    `📅 ${date} 플랜Bot`,
     '',
     `💡 오늘의 핵심`,
     result.overall_tip,
@@ -255,7 +255,7 @@ export function PlannerContainer() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `📅 ${date} Daily CEO Planner`,
+          title: `📅 ${date} 플랜Bot`,
           text,
         });
         return;
@@ -268,6 +268,13 @@ export function PlannerContainer() {
     try { await navigator.clipboard.writeText(text); } catch {}
     setSavedMsg('📋 공유 텍스트 복사됨! 카카오톡/이메일에 붙여넣기하세요');
     setTimeout(() => setSavedMsg(''), 3000);
+  }, [analysisResult, date]);
+
+  const handleShareTelegram = useCallback(async () => {
+    if (!analysisResult) return;
+    const text = formatShareText(date, analysisResult);
+    const encoded = encodeURIComponent(text);
+    window.open(`https://t.me/share/url?url=${encodeURIComponent('https://jeremylee0213.github.io/taro_bot/')}&text=${encoded}`, '_blank');
   }, [analysisResult, date]);
 
   const handleSaveImage = useCallback(async () => {
@@ -289,20 +296,32 @@ export function PlannerContainer() {
     }
   }, [date]);
 
-  const handleSaveSummaryImage = useCallback(async () => {
-    const summaryEl = document.getElementById('summary-card');
-    if (!summaryEl) return;
+  const handleCopyImage = useCallback(async () => {
+    if (!resultRef.current) return;
     try {
       const { default: html2canvas } = await import('html2canvas');
-      const canvas = await html2canvas(summaryEl, {
+      const canvas = await html2canvas(resultRef.current, {
         backgroundColor: '#ffffff',
         scale: 2,
         useCORS: true,
       });
-      const link = document.createElement('a');
-      link.download = `ceo-summary-${date}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        try {
+          await navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': blob }),
+          ]);
+          setSavedMsg('📋 이미지 클립보드 복사됨!');
+        } catch {
+          // fallback to download
+          const link = document.createElement('a');
+          link.download = `planbot-${date}.png`;
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+          setSavedMsg('📸 이미지 다운로드됨!');
+        }
+        setTimeout(() => setSavedMsg(''), 2000);
+      }, 'image/png');
     } catch {
       setSavedMsg('❌ 이미지 저장 실패');
       setTimeout(() => setSavedMsg(''), 2000);
@@ -434,7 +453,29 @@ export function PlannerContainer() {
             )}
 
             {analysisResult && !isAnalyzing && (
-              <div ref={resultRef} className="space-y-5 fade-in">
+              <>
+                {/* ═══ TOP ACTION BAR ═══ */}
+                <div className="flex flex-wrap gap-2" role="toolbar" aria-label="상단 액션">
+                  <button onClick={handleSaveAdvice} className="flex-1 py-3 rounded-xl text-[14px] sm:text-[15px] font-bold focus-ring"
+                    style={{ background: 'var(--color-accent)', color: '#fff' }} aria-label="분석 결과 저장">
+                    💾 저장
+                  </button>
+                  <button onClick={handleCopyAll} className="flex-1 py-3 rounded-xl text-[14px] sm:text-[15px] font-bold focus-ring"
+                    style={{ background: 'var(--color-surface)', color: 'var(--color-accent)', border: '1.5px solid var(--color-accent)' }} aria-label="전체 텍스트 복사">
+                    📋 복사
+                  </button>
+                  <button onClick={handleShare} className="flex-1 py-3 rounded-xl text-[14px] sm:text-[15px] font-bold focus-ring"
+                    style={{ background: 'var(--color-success)', color: '#fff' }} aria-label="결과 공유하기">
+                    📤 공유
+                  </button>
+                </div>
+                {savedMsg && (
+                  <p className="text-center text-[14px] sm:text-[15px] font-semibold fade-in" role="status" style={{ color: 'var(--color-success)' }}>
+                    {savedMsg}
+                  </p>
+                )}
+
+                <div ref={resultRef} className="space-y-5 fade-in">
 
                 {/* ─── 1. OVERALL TIP — Primary card, highest visual weight ─── */}
                 {analysisResult.overall_tip && (
@@ -475,6 +516,22 @@ export function PlannerContainer() {
                   />
                 )}
 
+                {/* ═══ MIDDLE ACTION BAR ═══ */}
+                <div className="grid grid-cols-3 gap-2" role="toolbar" aria-label="중간 액션">
+                  <button onClick={handleSaveImage} className="py-3 rounded-xl text-[13px] sm:text-[14px] font-bold focus-ring"
+                    style={{ background: 'var(--color-surface)', color: 'var(--color-text-secondary)', border: '1.5px solid var(--color-border)' }} aria-label="전체 이미지 저장">
+                    📸 이미지 저장
+                  </button>
+                  <button onClick={handleCopyImage} className="py-3 rounded-xl text-[13px] sm:text-[14px] font-bold focus-ring"
+                    style={{ background: 'var(--color-surface)', color: 'var(--color-accent)', border: '1.5px solid var(--color-accent)' }} aria-label="이미지 클립보드 복사">
+                    📋 이미지 복사
+                  </button>
+                  <button onClick={handleShareTelegram} className="py-3 rounded-xl text-[13px] sm:text-[14px] font-bold focus-ring"
+                    style={{ background: '#0088cc', color: '#fff' }} aria-label="텔레그램으로 공유">
+                    ✈️ 텔레그램
+                  </button>
+                </div>
+
                 {/* ─── 4. Advisor Panel ─── */}
                 <AdvisorPanel
                   advisors={analysisResult.advisors}
@@ -498,7 +555,7 @@ export function PlannerContainer() {
                           }}
                         >
                           <p className="text-[14px] sm:text-[15px] font-bold mb-1.5" style={{ color: 'var(--color-text)' }}>
-                            {spec.emoji} {spec.role}
+                            {spec.emoji} <span style={{ textDecoration: 'underline', textUnderlineOffset: '3px' }}>{spec.role}</span>
                           </p>
                           <p
                             className="text-[13px] sm:text-[14px] leading-[1.7] whitespace-pre-line"
@@ -516,7 +573,7 @@ export function PlannerContainer() {
                 {analysisResult.daily_neuro_summary && (
                   <div className="apple-card p-4 sm:p-6 fade-in" style={{ borderLeft: '4px solid var(--color-neuro)' }}>
                     <h3 className="text-[20px] sm:text-[22px] font-bold mb-3" style={{ color: 'var(--color-text)' }}>
-                      🧠 뇌과학 인사이트
+                      🧠 <span style={{ borderBottom: '2px solid var(--color-neuro)', paddingBottom: '2px' }}>뇌과학 인사이트</span>
                     </h3>
                     <p
                       className="text-[16px] sm:text-[17px] font-medium mb-4 whitespace-pre-line"
@@ -530,8 +587,8 @@ export function PlannerContainer() {
                           <div key={i} className="flex items-start gap-2">
                             <span className="text-[18px] flex-shrink-0 mt-0.5">{tip.emoji}</span>
                             <div>
-                              <p className="text-[15px] sm:text-[16px] font-bold" style={{ color: 'var(--color-text)' }}>
-                                {tip.label} · {tip.duration}분
+                              <p className="text-[15px] sm:text-[16px] font-bold" style={{ color: 'var(--color-accent)' }}>
+                                {tip.label} · <em style={{ fontStyle: 'italic', color: 'var(--color-warning)' }}>{tip.duration}분</em>
                               </p>
                               <p className="text-[14px] sm:text-[15px] leading-relaxed mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
                                 {tip.reason}
@@ -544,82 +601,32 @@ export function PlannerContainer() {
                   </div>
                 )}
 
-                {/* ─── Action Buttons — min 44px height ─── */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2" role="toolbar" aria-label="결과 액션">
-                  <button onClick={handleSaveAdvice} className="py-3.5 rounded-xl text-[14px] sm:text-[15px] font-bold focus-ring"
-                    style={{ background: 'var(--color-accent)', color: '#fff' }}
-                    aria-label="분석 결과 저장">
+                </div>
+
+                {/* ═══ BOTTOM ACTION BAR ═══ */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-2" role="toolbar" aria-label="하단 액션">
+                  <button onClick={handleSaveAdvice} className="py-3 rounded-xl text-[13px] sm:text-[14px] font-bold focus-ring"
+                    style={{ background: 'var(--color-accent)', color: '#fff' }} aria-label="저장">
                     💾 저장
                   </button>
-                  <button onClick={handleCopyAll} className="py-3.5 rounded-xl text-[14px] sm:text-[15px] font-bold focus-ring"
-                    style={{ background: 'var(--color-surface)', color: 'var(--color-accent)', border: '1.5px solid var(--color-accent)' }}
-                    aria-label="전체 텍스트 복사">
+                  <button onClick={handleCopyAll} className="py-3 rounded-xl text-[13px] sm:text-[14px] font-bold focus-ring"
+                    style={{ background: 'var(--color-surface)', color: 'var(--color-accent)', border: '1.5px solid var(--color-accent)' }} aria-label="텍스트 복사">
                     📋 복사
                   </button>
-                  <button onClick={handleSaveImage} className="py-3.5 rounded-xl text-[14px] sm:text-[15px] font-bold focus-ring"
-                    style={{ background: 'var(--color-surface)', color: 'var(--color-text-secondary)', border: '1.5px solid var(--color-border)' }}
-                    aria-label="전체 결과 이미지로 저장">
-                    📸 전체 이미지
+                  <button onClick={handleSaveImage} className="py-3 rounded-xl text-[13px] sm:text-[14px] font-bold focus-ring"
+                    style={{ background: 'var(--color-surface)', color: 'var(--color-text-secondary)', border: '1.5px solid var(--color-border)' }} aria-label="이미지 저장">
+                    📸 이미지
                   </button>
-                  <button onClick={handleShare} className="py-3.5 rounded-xl text-[14px] sm:text-[15px] font-bold focus-ring"
-                    style={{ background: 'var(--color-success)', color: '#fff' }}
-                    aria-label="결과 공유하기">
-                    📤 공유하기
+                  <button onClick={handleShare} className="py-3 rounded-xl text-[13px] sm:text-[14px] font-bold focus-ring"
+                    style={{ background: 'var(--color-success)', color: '#fff' }} aria-label="공유하기">
+                    📤 공유
+                  </button>
+                  <button onClick={handleShareTelegram} className="py-3 rounded-xl text-[13px] sm:text-[14px] font-bold focus-ring sm:col-span-1 col-span-2"
+                    style={{ background: '#0088cc', color: '#fff' }} aria-label="텔레그램으로 공유">
+                    ✈️ 텔레그램
                   </button>
                 </div>
-                {savedMsg && (
-                  <p className="text-center text-[14px] sm:text-[15px] font-semibold fade-in" role="status" style={{ color: 'var(--color-success)' }}>
-                    {savedMsg}
-                  </p>
-                )}
-
-                {/* ─── Summary Card ─── */}
-                <div
-                  id="summary-card"
-                  className="apple-card p-5 sm:p-7 fade-in"
-                  style={{ background: 'linear-gradient(135deg, var(--color-card), var(--color-accent-light))' }}
-                >
-                  <p className="text-[12px] sm:text-[13px] font-bold mb-1 tracking-wide" style={{ color: 'var(--color-accent)', letterSpacing: '0.05em' }}>
-                    📅 {date}
-                  </p>
-                  <p className="text-[18px] sm:text-[20px] font-bold mb-5 whitespace-pre-line" style={{ color: 'var(--color-text)', lineHeight: '1.6' }}>
-                    💡 {analysisResult.overall_tip}
-                  </p>
-
-                  {/* Mini schedule */}
-                  <div className="space-y-1.5 mb-5" style={{ borderLeft: '3px solid var(--color-accent)', paddingLeft: '12px' }}>
-                    {analysisResult.timeline.slice(0, 6).map((t, i) => (
-                      <p key={t.id} className="text-[13px] sm:text-[14px]" style={{ color: 'var(--color-text-secondary)' }}>
-                        <span className="font-bold" style={{ color: 'var(--color-text)' }}>{i + 1}.</span>{' '}
-                        🕐 {t.start}~{t.end}{' '}
-                        <strong>{t.title}</strong>
-                      </p>
-                    ))}
-                  </div>
-
-                  {/* Top 3 advisor quotes */}
-                  <div className="space-y-2">
-                    {analysisResult.advisors.slice(0, 3).map((a, i) => (
-                      <p key={i} className="text-[13px] sm:text-[14px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
-                        💬 <strong>{a.name}</strong>: {a.comment.length > 60 ? a.comment.slice(0, 60) + '...' : a.comment}
-                      </p>
-                    ))}
-                  </div>
-
-                  <p className="text-[11px] mt-5 text-right" style={{ color: 'var(--color-text-muted)' }}>
-                    Daily CEO Planner
-                  </p>
-                </div>
-
-                <button
-                  onClick={handleSaveSummaryImage}
-                  className="w-full py-3.5 rounded-xl text-[15px] sm:text-[16px] font-bold focus-ring"
-                  style={{ background: 'var(--color-accent)', color: '#fff' }}
-                  aria-label="핵심 카드 이미지로 저장"
-                >
-                  📸 핵심 카드 이미지 저장
-                </button>
-              </div>
+              </>
             )}
           </>
         )}

@@ -1,6 +1,5 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
 import { AdvisorComment } from '@/types/schedule';
 
 interface AdvisorPanelProps {
@@ -49,35 +48,6 @@ function getAdvisorEmoji(name: string): string {
   return '💡';
 }
 
-async function copyItemAsImage(el: HTMLElement) {
-  try {
-    const { default: html2canvas } = await import('html2canvas');
-    const canvas = await html2canvas(el, { backgroundColor: '#ffffff', scale: 2, useCORS: true });
-    canvas.toBlob(async (blob) => {
-      if (!blob) return;
-      try {
-        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-      } catch {
-        const link = document.createElement('a');
-        link.download = 'advisor.png';
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-      }
-    }, 'image/png');
-  } catch { /* silent */ }
-}
-
-async function downloadItemAsImage(el: HTMLElement, name: string) {
-  try {
-    const { default: html2canvas } = await import('html2canvas');
-    const canvas = await html2canvas(el, { backgroundColor: '#ffffff', scale: 2, useCORS: true });
-    const link = document.createElement('a');
-    link.download = `${name}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-  } catch { /* silent */ }
-}
-
 export function AdvisorPanel({
   advisors,
   onChangeAdvisors,
@@ -88,7 +58,7 @@ export function AdvisorPanel({
     <div className="apple-card p-4 sm:p-6 space-y-4 fade-in" role="region" aria-label="조언자 인사이트">
       <div className="flex items-center justify-between">
         <h3 className="text-[20px] sm:text-[22px] font-bold" style={{ color: 'var(--color-text)' }}>
-          💬 조언자 인사이트
+          💬 <span style={{ borderBottom: '3px solid var(--color-accent)', paddingBottom: '2px' }}>조언자 인사이트</span>
         </h3>
         <button
           onClick={onChangeAdvisors}
@@ -101,88 +71,56 @@ export function AdvisorPanel({
       </div>
 
       <div className="space-y-4" role="list">
-        {advisors.map((advisor, idx) => (
-          <AdvisorRow key={idx} advisor={advisor} index={idx + 1} />
-        ))}
-      </div>
-    </div>
-  );
-}
+        {advisors.map((advisor, idx) => {
+          const emoji = getAdvisorEmoji(advisor.name);
+          const color = AVATAR_COLORS[idx % AVATAR_COLORS.length];
 
-function AdvisorRow({ advisor, index }: { advisor: AdvisorComment; index: number }) {
-  const rowRef = useRef<HTMLDivElement>(null);
-  const emoji = getAdvisorEmoji(advisor.name);
+          // Format comment with line breaks + highlight key phrases
+          const formattedComment = advisor.comment
+            .replace(/([.!?])\s+/g, '$1\n\n')
+            .trim();
 
-  const handleCopy = useCallback(() => {
-    if (rowRef.current) copyItemAsImage(rowRef.current);
-  }, []);
+          return (
+            <div
+              key={idx}
+              className="rounded-xl p-4"
+              style={{
+                background: 'var(--color-surface)',
+                borderLeft: `4px solid ${color}`,
+              }}
+              role="listitem"
+              aria-label={`조언자 ${idx + 1}: ${advisor.name}`}
+            >
+              <div className="flex items-start gap-3">
+                {/* Number + Emoji avatar */}
+                <div className="flex flex-col items-center gap-1 flex-shrink-0" aria-hidden="true">
+                  <div
+                    className="w-11 h-11 rounded-full flex items-center justify-center text-[20px]"
+                    style={{ backgroundColor: color + '20' }}
+                  >
+                    {emoji}
+                  </div>
+                  <span
+                    className="text-[11px] font-bold px-1.5 py-0.5 rounded-full text-white"
+                    style={{ background: color }}
+                  >
+                    #{idx + 1}
+                  </span>
+                </div>
 
-  const handleDownload = useCallback(() => {
-    if (rowRef.current) downloadItemAsImage(rowRef.current, `advisor-${index}`);
-  }, [index]);
-
-  // Format comment with line breaks for readability
-  const formattedComment = advisor.comment
-    .replace(/([.!?])\s+/g, '$1\n\n')
-    .trim();
-
-  return (
-    <div
-      ref={rowRef}
-      className="rounded-xl p-4"
-      style={{
-        background: 'var(--color-surface)',
-        borderLeft: `4px solid ${AVATAR_COLORS[(index - 1) % AVATAR_COLORS.length]}`,
-      }}
-      role="listitem"
-      aria-label={`조언자 ${index}: ${advisor.name}`}
-    >
-      <div className="flex items-start gap-3">
-        {/* Number + Emoji avatar */}
-        <div className="flex flex-col items-center gap-1 flex-shrink-0" aria-hidden="true">
-          <div
-            className="w-11 h-11 rounded-full flex items-center justify-center text-[20px]"
-            style={{ backgroundColor: AVATAR_COLORS[(index - 1) % AVATAR_COLORS.length] + '20' }}
-          >
-            {emoji}
-          </div>
-          <span
-            className="text-[11px] font-bold px-1.5 py-0.5 rounded-full text-white"
-            style={{ background: AVATAR_COLORS[(index - 1) % AVATAR_COLORS.length] }}
-          >
-            #{index}
-          </span>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          <p className="text-[17px] sm:text-[18px] font-bold mb-2" style={{ color: 'var(--color-text)' }}>
-            {emoji} {advisor.name}
-          </p>
-          <div className="text-[15px] sm:text-[16px] leading-[1.8] whitespace-pre-line" style={{ color: 'var(--color-text-secondary)' }}>
-            &ldquo;{formattedComment}&rdquo;
-          </div>
-        </div>
-
-        {/* Copy + Download — 44px touch targets */}
-        <div className="flex flex-col gap-1.5 flex-shrink-0">
-          <button
-            onClick={handleCopy}
-            className="w-11 h-11 rounded-xl flex items-center justify-center text-[16px] transition-all hover:scale-110 focus-ring"
-            style={{ background: 'var(--color-accent-light)' }}
-            aria-label={`${advisor.name} 조언 클립보드 이미지 복사`}
-          >
-            📋
-          </button>
-          <button
-            onClick={handleDownload}
-            className="w-11 h-11 rounded-xl flex items-center justify-center text-[16px] transition-all hover:scale-110 focus-ring"
-            style={{ background: 'var(--color-accent-light)' }}
-            aria-label={`${advisor.name} 조언 이미지 저장`}
-          >
-            📸
-          </button>
-        </div>
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[17px] sm:text-[18px] font-bold mb-2" style={{ color }}>
+                    {emoji} <span style={{ textDecoration: 'underline', textUnderlineOffset: '4px', textDecorationColor: color }}>{advisor.name}</span>
+                  </p>
+                  <div className="text-[15px] sm:text-[16px] leading-[1.8] whitespace-pre-line" style={{ color: 'var(--color-text-secondary)' }}>
+                    <em>&ldquo;{formattedComment}&rdquo;</em>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

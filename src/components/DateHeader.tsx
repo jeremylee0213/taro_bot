@@ -33,7 +33,7 @@ export function DateHeader({
       <div className="max-w-4xl mx-auto">
         {/* Top row */}
         <div className="flex items-center justify-between mb-3">
-          <h1 className="text-xl font-bold" style={{ color: 'var(--color-text)' }}>Daily CEO Planner</h1>
+          <h1 className="text-xl font-bold" style={{ color: 'var(--color-text)' }}>🤖 플랜Bot</h1>
           <div className="flex items-center gap-2">
             <button
               onClick={onToggleTheme}

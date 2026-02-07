@@ -87,7 +87,7 @@ function getOROSCurve(doses: ConcertaDose[]): { hour: number; level: number; lab
 
     points.push({
       hour: Math.round(h * 10) / 10,
-      level: Math.round(Math.min(totalConc, 10) * 100) / 100,
+      level: Math.round(totalConc * 100) / 100,
       label: labels.join(' + ') || '',
     });
   }
@@ -99,16 +99,17 @@ export function ConcertaChart({ doses, energyData }: ConcertaChartProps) {
   if (!doses || doses.length === 0) return null;
 
   const curve = getOROSCurve(doses);
-  const maxConc = Math.max(...curve.map((c) => c.level), 1);
+  const rawMax = Math.max(...curve.map((c) => c.level), 1);
+  const maxConc = rawMax * 1.2; // 20% headroom so peak is clearly visible
   const peakPoint = curve.reduce((max, p) => p.level > max.level ? p : max, curve[0]);
 
   // Energy data mapping
   const sortedEnergy = energyData ? [...energyData].sort((a, b) => a.hour - b.hour) : [];
   const maxEnergy = 10;
 
-  // SVG dimensions
-  const W = 400, H = 170;
-  const PAD_L = 32, PAD_R = 10, PAD_T = 15, PAD_B = 25;
+  // SVG dimensions — increased height for better peak visibility
+  const W = 400, H = 200;
+  const PAD_L = 36, PAD_R = 10, PAD_T = 20, PAD_B = 25;
   const plotW = W - PAD_L - PAD_R;
   const plotH = H - PAD_T - PAD_B;
 
@@ -127,7 +128,7 @@ export function ConcertaChart({ doses, energyData }: ConcertaChartProps) {
         💊 콘서타 농도 + ⚡ 에너지
       </h3>
       <p className="text-[14px] mb-3" style={{ color: 'var(--color-text-muted)' }}>
-        {doses.map((d) => `🕐 ${d.time} ${d.doseMg}mg`).join('  ')} · 피크 ~{peakHourDisplay}시
+        {doses.map((d) => `🕐 ${d.time} ${d.doseMg}mg`).join('  ')} · <strong style={{ color: 'var(--color-accent)' }}>피크 ~{peakHourDisplay}시 ({peakPoint.level.toFixed(1)})</strong>
       </p>
 
       {/* Combined SVG chart */}
@@ -169,9 +170,33 @@ export function ConcertaChart({ doses, energyData }: ConcertaChartProps) {
             );
           })}
 
-          {/* Peak marker */}
-          <circle cx={hourToX(peakPoint.hour)} cy={concToY(peakPoint.level)} r="5" fill="var(--color-accent)" />
-          <circle cx={hourToX(peakPoint.hour)} cy={concToY(peakPoint.level)} r="9" fill="var(--color-accent)" opacity="0.15" />
+          {/* Y-axis labels */}
+          {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
+            <text
+              key={`ylabel-${pct}`}
+              x={PAD_L - 4}
+              y={PAD_T + (1 - pct) * plotH + 3}
+              textAnchor="end"
+              fill="var(--color-text-muted)"
+              fontSize="8"
+            >
+              {Math.round(maxConc * pct * 10) / 10}
+            </text>
+          ))}
+
+          {/* Peak marker — larger and with value label */}
+          <circle cx={hourToX(peakPoint.hour)} cy={concToY(peakPoint.level)} r="6" fill="var(--color-accent)" />
+          <circle cx={hourToX(peakPoint.hour)} cy={concToY(peakPoint.level)} r="12" fill="var(--color-accent)" opacity="0.12" />
+          <text
+            x={hourToX(peakPoint.hour)}
+            y={concToY(peakPoint.level) - 12}
+            textAnchor="middle"
+            fill="var(--color-accent)"
+            fontSize="10"
+            fontWeight="bold"
+          >
+            🔝 {peakPoint.level.toFixed(1)}
+          </text>
 
           {/* Dose intake markers */}
           {doses.map((dose, di) => {

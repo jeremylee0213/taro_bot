@@ -2,13 +2,13 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Daily CEO Planner',
+  title: '플랜Bot',
   description: '하루 일정을 전략적으로 관리하세요 — AI 브리핑과 조언자의 인사이트',
   manifest: '/taro_bot/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'CEO Planner',
+    title: '플랜Bot',
   },
 };
 
