@@ -13,6 +13,13 @@ function getLevelColor(level: number): string {
   return 'var(--color-danger)';
 }
 
+function getLevelEmoji(level: number): string {
+  if (level >= 8) return '🔥';
+  if (level >= 6) return '⚡';
+  if (level >= 4) return '🔋';
+  return '😴';
+}
+
 export function EnergyChart({ data }: EnergyChartProps) {
   if (!data || data.length === 0) return null;
 
@@ -21,11 +28,11 @@ export function EnergyChart({ data }: EnergyChartProps) {
 
   return (
     <div className="apple-card p-5 fade-in">
-      <h3 className="text-xl font-bold mb-4" style={{ color: 'var(--color-text)' }}>
+      <h3 className="text-[20px] font-bold mb-4" style={{ color: 'var(--color-text)' }}>
         ⚡ 에너지 예측
       </h3>
 
-      <div className="flex items-end gap-1.5" style={{ height: '140px' }}>
+      <div className="flex items-end gap-1.5" style={{ height: '160px' }}>
         {sorted.map((block, idx) => {
           const heightPct = (block.level / maxLevel) * 100;
           return (
@@ -33,14 +40,14 @@ export function EnergyChart({ data }: EnergyChartProps) {
               {/* Label on top */}
               <div
                 className="text-center leading-tight flex-shrink-0"
-                style={{ fontSize: '10px', color: 'var(--color-text-muted)', minHeight: '24px' }}
+                style={{ fontSize: '11px', color: 'var(--color-text-muted)', minHeight: '24px' }}
               >
                 {block.label}
               </div>
               {/* Bar */}
               <div className="flex-1 w-full flex items-end justify-center">
                 <div
-                  className="w-full rounded-t-md transition-all duration-500"
+                  className="w-full rounded-t-lg transition-all duration-500"
                   style={{
                     height: `${heightPct}%`,
                     backgroundColor: getLevelColor(block.level),
@@ -50,17 +57,17 @@ export function EnergyChart({ data }: EnergyChartProps) {
                   }}
                 />
               </div>
-              {/* Level number */}
+              {/* Level with emoji */}
               <span
                 className="font-bold flex-shrink-0"
-                style={{ fontSize: '12px', color: getLevelColor(block.level) }}
+                style={{ fontSize: '13px', color: getLevelColor(block.level) }}
               >
-                {block.level}
+                {getLevelEmoji(block.level)} {block.level}
               </span>
               {/* Hour label */}
               <span
-                className="flex-shrink-0"
-                style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}
+                className="flex-shrink-0 font-medium"
+                style={{ fontSize: '13px', color: 'var(--color-text-muted)' }}
               >
                 {block.hour}시
               </span>

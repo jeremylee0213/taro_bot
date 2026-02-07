@@ -25,12 +25,18 @@ export interface SchedulePreset {
 
 // ─── Profile Types ───
 
+export interface ConcertaDose {
+  time: string;   // HH:mm
+  doseMg: number; // mg
+}
+
 export interface UserProfile {
   traits: string[];
   medications: string[];
   preferences: string[];
   sleepGoal: string;
   notes: string;
+  concertaDoses?: ConcertaDose[];
 }
 
 // ─── Advisor Types ───

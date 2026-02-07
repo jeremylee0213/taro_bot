@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { UserProfile } from '@/types/schedule';
+import { UserProfile, ConcertaDose } from '@/types/schedule';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -53,10 +53,30 @@ export function SettingsModal({
     onClose();
   };
 
+  const concertaDoses = form.concertaDoses || [];
+
+  const addDose = () => {
+    setForm({
+      ...form,
+      concertaDoses: [...concertaDoses, { time: '08:00', doseMg: 27 }],
+    });
+  };
+
+  const updateDose = (idx: number, field: keyof ConcertaDose, value: string | number) => {
+    const updated = [...concertaDoses];
+    if (field === 'time') updated[idx] = { ...updated[idx], time: value as string };
+    if (field === 'doseMg') updated[idx] = { ...updated[idx], doseMg: Number(value) };
+    setForm({ ...form, concertaDoses: updated });
+  };
+
+  const removeDose = (idx: number) => {
+    setForm({ ...form, concertaDoses: concertaDoses.filter((_, i) => i !== idx) });
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
       <div className="apple-card w-[92%] max-w-md p-6 space-y-5" style={{ maxHeight: '85vh', overflowY: 'auto' }}>
-        <h2 className="text-xl font-bold" style={{ color: 'var(--color-text)' }}>⚙️ 설정</h2>
+        <h2 className="text-[22px] font-bold" style={{ color: 'var(--color-text)' }}>⚙️ 설정</h2>
 
         {/* Tabs */}
         <div className="flex gap-2">
@@ -68,7 +88,7 @@ export function SettingsModal({
               color: tab === 'api' ? '#fff' : 'var(--color-text-secondary)',
             }}
           >
-            API 설정
+            🔑 API 설정
           </button>
           <button
             onClick={() => setTab('profile')}
@@ -78,7 +98,7 @@ export function SettingsModal({
               color: tab === 'profile' ? '#fff' : 'var(--color-text-secondary)',
             }}
           >
-            내 프로필
+            👤 내 프로필
           </button>
         </div>
 
@@ -86,7 +106,7 @@ export function SettingsModal({
         {tab === 'api' && (
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-[15px] font-medium" style={{ color: 'var(--color-text-secondary)' }}>OpenAI API Key</label>
+              <label className="text-[16px] font-semibold" style={{ color: 'var(--color-text)' }}>🔑 OpenAI API Key</label>
               <input
                 type="password"
                 value={keyInput}
@@ -94,13 +114,13 @@ export function SettingsModal({
                 placeholder="sk-..."
                 className="w-full"
               />
-              <p className="text-[13px]" style={{ color: 'var(--color-text-muted)' }}>
-                브라우저에만 저장됩니다
+              <p className="text-[14px]" style={{ color: 'var(--color-text-muted)' }}>
+                🔒 브라우저에만 저장됩니다
               </p>
             </div>
 
             <div className="space-y-2">
-              <label className="text-[15px] font-medium" style={{ color: 'var(--color-text-secondary)' }}>모델</label>
+              <label className="text-[16px] font-semibold" style={{ color: 'var(--color-text)' }}>🤖 모델</label>
               <select
                 value={selectedModel}
                 onChange={(e) => setSelectedModel(e.target.value)}
@@ -120,7 +140,7 @@ export function SettingsModal({
         {tab === 'profile' && (
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-[15px] font-medium" style={{ color: 'var(--color-text-secondary)' }}>🧠 기질 특성</label>
+              <label className="text-[16px] font-semibold" style={{ color: 'var(--color-text)' }}>🧠 기질 특성</label>
               <input
                 type="text"
                 value={form.traits.join(', ')}
@@ -131,7 +151,7 @@ export function SettingsModal({
             </div>
 
             <div className="space-y-2">
-              <label className="text-[15px] font-medium" style={{ color: 'var(--color-text-secondary)' }}>💊 복용 약물</label>
+              <label className="text-[16px] font-semibold" style={{ color: 'var(--color-text)' }}>💊 복용 약물</label>
               <input
                 type="text"
                 value={form.medications.join(', ')}
@@ -141,8 +161,63 @@ export function SettingsModal({
               />
             </div>
 
+            {/* ─── Concerta Dosing Schedule ─── */}
+            <div className="space-y-3">
+              <label className="text-[16px] font-semibold" style={{ color: 'var(--color-text)' }}>
+                💊 콘서타 복용 스케줄
+              </label>
+              <p className="text-[13px]" style={{ color: 'var(--color-text-muted)' }}>
+                복용 시간과 용량을 입력하면 농도 곡선이 생성됩니다
+              </p>
+
+              {concertaDoses.map((dose, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center gap-2 p-3 rounded-xl"
+                  style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+                >
+                  <span className="text-[18px]">🕐</span>
+                  <input
+                    type="time"
+                    value={dose.time}
+                    onChange={(e) => updateDose(idx, 'time', e.target.value)}
+                    className="flex-1"
+                    style={{ minWidth: '100px' }}
+                  />
+                  <select
+                    value={dose.doseMg}
+                    onChange={(e) => updateDose(idx, 'doseMg', Number(e.target.value))}
+                    className="flex-1"
+                  >
+                    {[17, 18, 27, 36, 54].map((mg) => (
+                      <option key={mg} value={mg}>{mg}mg</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => removeDose(idx)}
+                    className="text-[18px] p-1"
+                    style={{ color: 'var(--color-danger)' }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+
+              <button
+                onClick={addDose}
+                className="w-full py-2.5 rounded-xl text-[15px] font-semibold"
+                style={{
+                  background: 'var(--color-accent-light)',
+                  color: 'var(--color-accent)',
+                  border: '1.5px dashed var(--color-accent)',
+                }}
+              >
+                ➕ 복용 시간 추가
+              </button>
+            </div>
+
             <div className="space-y-2">
-              <label className="text-[15px] font-medium" style={{ color: 'var(--color-text-secondary)' }}>🎯 선호 활동</label>
+              <label className="text-[16px] font-semibold" style={{ color: 'var(--color-text)' }}>🎯 선호 활동</label>
               <input
                 type="text"
                 value={form.preferences.join(', ')}
@@ -153,7 +228,7 @@ export function SettingsModal({
             </div>
 
             <div className="space-y-2">
-              <label className="text-[15px] font-medium" style={{ color: 'var(--color-text-secondary)' }}>😴 수면 목표</label>
+              <label className="text-[16px] font-semibold" style={{ color: 'var(--color-text)' }}>😴 수면 목표</label>
               <input
                 type="text"
                 value={form.sleepGoal}
@@ -164,7 +239,7 @@ export function SettingsModal({
             </div>
 
             <div className="space-y-2">
-              <label className="text-[15px] font-medium" style={{ color: 'var(--color-text-secondary)' }}>📝 메모</label>
+              <label className="text-[16px] font-semibold" style={{ color: 'var(--color-text)' }}>📝 메모</label>
               <textarea
                 value={form.notes}
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
@@ -187,7 +262,7 @@ export function SettingsModal({
             onClick={handleSave}
             className="btn-primary flex-1 py-3"
           >
-            저장
+            💾 저장
           </button>
         </div>
       </div>

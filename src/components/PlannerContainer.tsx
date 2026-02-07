@@ -25,7 +25,7 @@ import { QuickInput } from './QuickInput';
 import { AnalysisSkeleton } from './AnalysisSkeleton';
 import { ScheduleTable } from './ScheduleTable';
 import { EnergyChart } from './EnergyChart';
-import { BriefingList } from './BriefingList';
+import { ConcertaChart } from './ConcertaChart';
 import { AdvisorPanel } from './AdvisorPanel';
 import { AdvisorSettings } from './AdvisorSettings';
 import { ShareButton } from './ShareButton';
@@ -37,6 +37,10 @@ const DEFAULT_PROFILE: UserProfile = {
   preferences: ['러닝', '수면', '독서', '명상', '기록'],
   sleepGoal: '23:00~07:00',
   notes: '',
+  concertaDoses: [
+    { time: '08:00', doseMg: 27 },
+    { time: '13:00', doseMg: 17 },
+  ],
 };
 
 const ALL_ADVISORS: Advisor[] = [
@@ -60,9 +64,9 @@ const ALL_ADVISORS: Advisor[] = [
 const DEFAULT_ADVISOR_IDS = ['em', 'wb', 'sn'];
 
 const MODE_LABELS: Record<DetailMode, string> = {
-  short: '짧게',
-  medium: '중간',
-  long: '길게',
+  short: '⚡ 짧게',
+  medium: '📊 중간',
+  long: '📖 길게',
 };
 
 export function PlannerContainer() {
@@ -115,7 +119,7 @@ export function PlannerContainer() {
       setView('result');
 
       try {
-        setProgress({ step: 1, total: 3, label: '프롬프트 준비 중...' });
+        setProgress({ step: 1, total: 3, label: '🔧 프롬프트 준비 중...' });
         const messages = assemblePrompt({
           schedules, energyLevel,
           advisors: advisorsToUse,
@@ -125,7 +129,7 @@ export function PlannerContainer() {
           isRestDay: restMode,
         });
 
-        setProgress({ step: 2, total: 3, label: 'AI 분석 중...' });
+        setProgress({ step: 2, total: 3, label: '🤖 AI 분석 중...' });
         const openai = createOpenAI(apiKey);
 
         const useNewTokenParam = [
@@ -144,12 +148,11 @@ export function PlannerContainer() {
             ...(useNewTokenParam ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
           });
           const raw = response.choices[0]?.message?.content || '';
-          setProgress({ step: 3, total: 3, label: '완료!' });
+          setProgress({ step: 3, total: 3, label: '✅ 완료!' });
           const result = parseResponse(raw);
           setAnalysisResult(result);
           setCache(schedules, energyLevel, idsToUse, result);
         } else {
-          // Streaming
           const stream = await openai.chat.completions.create({
             model,
             messages: messages as Parameters<typeof openai.chat.completions.create>[0]['messages'],
@@ -165,7 +168,7 @@ export function PlannerContainer() {
             setStreamText(accumulated);
           }
 
-          setProgress({ step: 3, total: 3, label: '완료!' });
+          setProgress({ step: 3, total: 3, label: '✅ 완료!' });
           const result = parseResponse(accumulated);
           setAnalysisResult(result);
           setCache(schedules, energyLevel, idsToUse, result);
@@ -175,11 +178,11 @@ export function PlannerContainer() {
       } catch (err: unknown) {
         const errMsg = err instanceof Error ? err.message : '알 수 없는 오류';
         if (errMsg.includes('401') || errMsg.includes('Incorrect API key')) {
-          setError('API 키가 올바르지 않습니다.');
+          setError('🔑 API 키가 올바르지 않습니다.');
         } else if (errMsg.includes('429')) {
-          setError('요청이 너무 많습니다. 잠시 후 다시 시도해주세요.');
+          setError('⏳ 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.');
         } else {
-          setError(`오류: ${errMsg}`);
+          setError(`❌ 오류: ${errMsg}`);
         }
       } finally {
         setIsAnalyzing(false);
@@ -217,7 +220,7 @@ export function PlannerContainer() {
   }, [date]);
 
   const hasEnergy = analysisResult?.energy_chart && analysisResult.energy_chart.length > 0;
-  const hasBriefings = analysisResult?.briefings && analysisResult.briefings.length > 0;
+  const hasConcerta = profile.concertaDoses && profile.concertaDoses.length > 0;
 
   if (!isLoaded) return <div className="min-h-screen" style={{ background: 'var(--color-bg)' }} />;
 
@@ -242,9 +245,9 @@ export function PlannerContainer() {
         {/* ─── FORM VIEW ─── */}
         {view === 'form' && (
           <>
-            <div className="apple-card p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[15px] font-semibold" style={{ color: 'var(--color-text)' }}>
+            <div className="apple-card p-5">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[17px] font-bold" style={{ color: 'var(--color-text)' }}>
                   📊 분석 모드
                 </span>
               </div>
@@ -253,7 +256,7 @@ export function PlannerContainer() {
                   <button
                     key={mode}
                     onClick={() => setDetailMode(mode)}
-                    className="flex-1 py-2.5 rounded-xl text-[15px] font-semibold transition-all"
+                    className="flex-1 py-3 rounded-xl text-[16px] font-bold transition-all"
                     style={{
                       background: detailMode === mode ? 'var(--color-accent)' : 'var(--color-surface)',
                       color: detailMode === mode ? '#fff' : 'var(--color-text-secondary)',
@@ -264,10 +267,10 @@ export function PlannerContainer() {
                   </button>
                 ))}
               </div>
-              <p className="text-[13px] mt-2" style={{ color: 'var(--color-text-muted)' }}>
-                {detailMode === 'short' && '핵심만 간결하게'}
-                {detailMode === 'medium' && '에너지 차트 + 주요 브리핑 포함'}
-                {detailMode === 'long' && '전체 브리핑 + 에너지 차트 + 상세 분석'}
+              <p className="text-[14px] mt-2" style={{ color: 'var(--color-text-muted)' }}>
+                {detailMode === 'short' && '⚡ 핵심만 간결하게'}
+                {detailMode === 'medium' && '📊 에너지 차트 + 주요 브리핑 포함'}
+                {detailMode === 'long' && '📖 전체 브리핑 + 에너지 차트 + 상세 분석'}
               </p>
             </div>
             <QuickInput onAnalyze={runAnalysis} />
@@ -277,18 +280,17 @@ export function PlannerContainer() {
         {/* ─── RESULT VIEW (Single page scroll) ─── */}
         {view === 'result' && (
           <>
-            {/* Top bar: back + mode badge + share */}
             <div className="flex items-center justify-between">
               <button
                 onClick={() => { setView('form'); setError(null); }}
-                className="text-[17px] font-semibold"
+                className="text-[18px] font-bold"
                 style={{ color: 'var(--color-accent)' }}
               >
                 ← 돌아가기
               </button>
               <div className="flex items-center gap-3">
                 <span
-                  className="text-[14px] px-3 py-1 rounded-full font-medium"
+                  className="text-[14px] px-3 py-1.5 rounded-full font-semibold"
                   style={{ background: 'var(--color-accent-light)', color: 'var(--color-accent)' }}
                 >
                   {MODE_LABELS[detailMode]}
@@ -298,20 +300,18 @@ export function PlannerContainer() {
             </div>
 
             {!isAnalyzing && (
-              <p className="text-center text-[12px]" style={{ color: 'var(--color-text-muted)' }}>
-                ← 스와이프로 날짜 이동 →
+              <p className="text-center text-[13px]" style={{ color: 'var(--color-text-muted)' }}>
+                👆 스와이프로 날짜 이동
               </p>
             )}
 
-            {/* Loading skeleton */}
             {isAnalyzing && <AnalysisSkeleton progress={progress} streamText={streamText || undefined} />}
 
-            {/* Error */}
             {error && (
               <div className="apple-card p-5 fade-in" style={{ borderLeft: '4px solid var(--color-danger)' }}>
-                <p className="text-[17px] mb-3" style={{ color: 'var(--color-text)' }}>{error}</p>
+                <p className="text-[18px] mb-3" style={{ color: 'var(--color-text)' }}>{error}</p>
                 <button onClick={() => runAnalysis(lastSchedulesRef.current)} className="btn-primary px-5 py-2.5">
-                  다시 시도
+                  🔄 다시 시도
                 </button>
               </div>
             )}
@@ -321,8 +321,8 @@ export function PlannerContainer() {
               <div className="space-y-5 fade-in">
                 {/* 1. Overall tip */}
                 {analysisResult.overall_tip && (
-                  <div className="apple-card p-4" style={{ borderLeft: '4px solid var(--color-accent)' }}>
-                    <p className="text-[17px] font-semibold" style={{ color: 'var(--color-text)' }}>
+                  <div className="apple-card p-5" style={{ borderLeft: '4px solid var(--color-accent)' }}>
+                    <p className="text-[18px] font-bold leading-relaxed" style={{ color: 'var(--color-text)' }}>
                       💡 {analysisResult.overall_tip}
                     </p>
                   </div>
@@ -335,9 +335,9 @@ export function PlannerContainer() {
                   briefings={analysisResult.briefings}
                 />
 
-                {/* 3. Detailed Briefings (accordion - if available) */}
-                {hasBriefings && (
-                  <BriefingList briefings={analysisResult.briefings!} />
+                {/* 3. Concerta Concentration Curve */}
+                {hasConcerta && (
+                  <ConcertaChart doses={profile.concertaDoses!} />
                 )}
 
                 {/* 4. Energy Chart */}
@@ -354,17 +354,17 @@ export function PlannerContainer() {
                 {/* 6. Neuro Summary */}
                 {analysisResult.daily_neuro_summary && (
                   <div className="apple-card p-5 fade-in" style={{ borderLeft: '4px solid var(--color-neuro)' }}>
-                    <h3 className="text-lg font-bold mb-3" style={{ color: 'var(--color-text)' }}>
-                      🧠 뇌과학 팁
+                    <h3 className="text-[20px] font-bold mb-3" style={{ color: 'var(--color-text)' }}>
+                      🧠 뇌과학 인사이트
                     </h3>
-                    <p className="text-[16px] font-medium mb-3" style={{ color: 'var(--color-text)' }}>
+                    <p className="text-[17px] font-medium mb-3 leading-relaxed" style={{ color: 'var(--color-text)' }}>
                       {analysisResult.daily_neuro_summary}
                     </p>
                     {analysisResult.neuro_tips.length > 0 && (
                       <div className="space-y-2">
                         {analysisResult.neuro_tips.map((tip, i) => (
-                          <p key={i} className="text-[15px]" style={{ color: 'var(--color-text-secondary)' }}>
-                            {tip.emoji} {tip.label} · {tip.duration}분 — {tip.reason}
+                          <p key={i} className="text-[16px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+                            {tip.emoji} <strong>{tip.label}</strong> · {tip.duration}분 — {tip.reason}
                           </p>
                         ))}
                       </div>

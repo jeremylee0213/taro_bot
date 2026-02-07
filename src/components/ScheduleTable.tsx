@@ -8,16 +8,16 @@ interface ScheduleTableProps {
   briefings?: BriefingEntry[];
 }
 
-const PRIORITY_BADGE: Record<string, { color: string; label: string }> = {
-  high: { color: 'var(--color-priority-high)', label: '높음' },
-  medium: { color: 'var(--color-priority-medium)', label: '보통' },
-  low: { color: 'var(--color-priority-low)', label: '낮음' },
+const PRIORITY_BADGE: Record<string, { color: string; emoji: string }> = {
+  high: { color: 'var(--color-priority-high)', emoji: '🔴' },
+  medium: { color: 'var(--color-priority-medium)', emoji: '🔵' },
+  low: { color: 'var(--color-priority-low)', emoji: '⚪' },
 };
 
 const CATEGORY_EMOJI: Record<string, string> = {
   work: '💼',
   family: '🏠',
-  personal: '👤',
+  personal: '🧘',
   health: '🏃',
 };
 
@@ -37,59 +37,64 @@ export function ScheduleTable({ timeline, scheduleTips, briefings }: ScheduleTab
   }
 
   return (
-    <div className="apple-card p-4 fade-in overflow-x-auto">
-      <h3 className="text-lg font-bold mb-3" style={{ color: 'var(--color-text)' }}>
-        📅 일정 & 브리핑
+    <div className="apple-card p-5 fade-in">
+      <h3 className="text-[20px] font-bold mb-4" style={{ color: 'var(--color-text)' }}>
+        📅 오늘의 일정
       </h3>
 
       <div className="space-y-3">
         {timeline.map((entry) => {
           const tips = tipsMap.get(entry.id);
           const briefing = briefingMap.get(entry.id);
-          const badge = PRIORITY_BADGE[entry.priority];
+          const badge = PRIORITY_BADGE[entry.priority] || PRIORITY_BADGE.medium;
 
           return (
             <div
               key={entry.id}
-              className="rounded-xl p-3 transition-all"
+              className="rounded-xl p-4 transition-all"
               style={{
                 background: 'var(--color-surface)',
                 borderLeft: `4px solid ${badge.color}`,
               }}
             >
-              {/* Row 1: Time + Title + Category */}
+              {/* Header: Time + Title */}
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[14px] font-mono font-medium" style={{ color: 'var(--color-text-muted)' }}>
+                <span className="text-[15px]">
+                  {CATEGORY_EMOJI[entry.category] || '📌'}
+                </span>
+                <span
+                  className="text-[15px] font-mono font-semibold"
+                  style={{ color: 'var(--color-accent)' }}
+                >
                   {entry.start}~{entry.end}
                 </span>
-                <span className="text-[16px] font-semibold flex-1" style={{ color: 'var(--color-text)' }}>
+                <span className="text-[18px] font-bold flex-1" style={{ color: 'var(--color-text)' }}>
                   {entry.title}
                 </span>
-                <span className="text-[13px]">{CATEGORY_EMOJI[entry.category] || '💼'}</span>
-                {entry.priority === 'high' && <span className="text-[12px]">⚡</span>}
+                <span className="text-[14px]">{badge.emoji}</span>
               </div>
 
-              {/* Row 2: Tips (from schedule_tips) */}
+              {/* Tips - key action only */}
               {tips && tips.length > 0 && (
-                <p className="text-[13px] mt-1.5" style={{ color: 'var(--color-text-secondary)' }}>
-                  💡 {tips.join(' · ')}
+                <p className="text-[15px] mt-2 leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+                  💡 {tips[0]}
                 </p>
               )}
 
-              {/* Row 3: Briefing (tip + prep) — merged inline */}
+              {/* Briefing prep - always visible, no accordion */}
               {briefing && (
                 <div className="mt-2 pt-2" style={{ borderTop: '1px dashed var(--color-border)' }}>
                   {briefing.tip && (
-                    <p className="text-[13px]" style={{ color: 'var(--color-accent)' }}>
+                    <p className="text-[15px] font-medium" style={{ color: 'var(--color-accent)' }}>
                       📋 {briefing.tip}
                     </p>
                   )}
                   {briefing.prep.length > 0 && (
-                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+                    <div className="mt-1 space-y-0.5">
                       {briefing.prep.map((p, i) => (
-                        <span key={i} className="text-[12px]" style={{ color: 'var(--color-text-muted)' }}>
-                          • {p}
-                        </span>
+                        <p key={i} className="text-[14px]" style={{ color: 'var(--color-text-secondary)' }}>
+                          ✅ {p}
+                        </p>
                       ))}
                     </div>
                   )}
