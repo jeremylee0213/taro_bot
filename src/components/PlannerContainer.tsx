@@ -14,9 +14,7 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useTheme } from '@/hooks/useTheme';
 import { useScheduleStore } from '@/hooks/useScheduleStore';
 import { useAnalysisCache } from '@/hooks/useAnalysisCache';
-import {
-  getToday,
-} from '@/lib/schedule-utils';
+import { getToday } from '@/lib/schedule-utils';
 import { assemblePrompt } from '@/lib/prompt-assembler';
 import { parseResponse } from '@/lib/parse-response';
 import { createOpenAI } from '@/lib/openai';
@@ -25,14 +23,18 @@ import { DateHeader } from './DateHeader';
 import { QuickInput } from './QuickInput';
 import { AnalysisSkeleton } from './AnalysisSkeleton';
 import { BlockCalendar } from './BlockCalendar';
-import { BriefingCard } from './BriefingCard';
 import { AdvisorPanel } from './AdvisorPanel';
 import { AdvisorSettings } from './AdvisorSettings';
-import { ReviewSection } from './ReviewSection';
-import { AchievementTracker } from './AchievementTracker';
 import { ShareButton } from './ShareButton';
 import { SettingsModal } from './SettingsModal';
-import { ProfileCard, DEFAULT_PROFILE } from './ProfileCard';
+
+const DEFAULT_PROFILE: UserProfile = {
+  traits: ['조용한 ADHD', 'HSP'],
+  medications: ['아토목신 10mg', '아리피졸 2mg', '콘서타 27mg 오전', '콘서타 17mg 오후'],
+  preferences: ['러닝', '수면', '독서', '명상', '기록'],
+  sleepGoal: '23:00~07:00',
+  notes: '',
+};
 
 // ─── All Advisors ───
 const ALL_ADVISORS: Advisor[] = [
@@ -66,10 +68,10 @@ export function PlannerContainer() {
   const [advisorTone, setAdvisorTone] = useLocalStorage<AdvisorTone>('ceo-planner-tone', 'encouraging');
   const [profile, setProfile] = useLocalStorage<UserProfile>('ceo-planner-profile', DEFAULT_PROFILE);
 
-  // Schedule store (for energy, review, completedCount, weekly stats)
+  // Schedule store
   const {
-    energyLevel, review, completedCount, isLoaded,
-    updateSchedules, updateEnergyLevel, updateReview, updateCompletedCount, getWeeklyStats,
+    energyLevel, isLoaded,
+    updateSchedules, updateEnergyLevel, updateCompletedCount,
   } = useScheduleStore(date);
 
   // Analysis
@@ -85,19 +87,15 @@ export function PlannerContainer() {
 
   const { getCached, setCache } = useAnalysisCache();
 
-  // Derived
   const selectedAdvisors = ALL_ADVISORS.filter((a) => selectedAdvisorIds.includes(a.id));
-  const weeklyStats = getWeeklyStats();
 
-  // ─── Analysis handler (receives items directly from QuickInput) ───
+  // ─── Analysis handler ───
   const runAnalysis = useCallback(
     async (items: ScheduleItem[]) => {
       if (!apiKey) { setShowSettings(true); return; }
 
       const restMode = items.length === 0;
       const schedules = items;
-
-      // Save schedules to store for persistence
       updateSchedules(() => schedules);
 
       const cached = getCached(schedules, energyLevel, selectedAdvisorIds);
@@ -112,7 +110,7 @@ export function PlannerContainer() {
       setView('result');
 
       try {
-        setProgress({ step: 1, total: 3, label: '프롬프트 준비 중...' });
+        setProgress({ step: 1, total: 3, label: '준비 중...' });
         const messages = assemblePrompt({
           schedules, energyLevel,
           advisors: selectedAdvisors,
@@ -137,33 +135,27 @@ export function PlannerContainer() {
         });
 
         const raw = response.choices[0]?.message?.content || '';
-
-        setProgress({ step: 3, total: 3, label: '결과 정리 중...' });
+        setProgress({ step: 3, total: 3, label: '완료!' });
         const result = parseResponse(raw);
 
         setAnalysisResult(result);
         setCache(schedules, energyLevel, selectedAdvisorIds, result);
-        updateCompletedCount(completedCount + schedules.length);
+        updateCompletedCount(schedules.length);
       } catch (err: unknown) {
         const errMsg = err instanceof Error ? err.message : '알 수 없는 오류';
         if (errMsg.includes('401') || errMsg.includes('Incorrect API key')) {
-          setError('API 키가 올바르지 않습니다. 설정에서 확인해주세요.');
+          setError('API 키가 올바르지 않습니다.');
         } else if (errMsg.includes('429')) {
           setError('요청이 너무 많습니다. 잠시 후 다시 시도해주세요.');
         } else {
-          setError(`오류가 발생했습니다: ${errMsg}`);
+          setError(`오류: ${errMsg}`);
         }
       } finally {
         setIsAnalyzing(false);
       }
     },
-    [apiKey, model, energyLevel, selectedAdvisors, selectedAdvisorIds, advisorTone, profile, completedCount, getCached, setCache, updateCompletedCount, updateSchedules]
+    [apiKey, model, energyLevel, selectedAdvisors, selectedAdvisorIds, advisorTone, profile, getCached, setCache, updateCompletedCount, updateSchedules]
   );
-
-  const handleScrollToBriefing = (id: number) => {
-    const el = document.getElementById(`briefing-${id}`);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  };
 
   if (!isLoaded) return <div className="min-h-screen" style={{ background: 'var(--color-bg)' }} />;
 
@@ -182,13 +174,7 @@ export function PlannerContainer() {
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
         {/* ─── FORM VIEW ─── */}
         {view === 'form' && (
-          <>
-            {/* Profile Card */}
-            <ProfileCard profile={profile} onSave={setProfile} />
-
-            {/* Quick Input — single textarea, real-time preview, analyze button */}
-            <QuickInput onAnalyze={runAnalysis} />
-          </>
+          <QuickInput onAnalyze={runAnalysis} />
         )}
 
         {/* ─── RESULT VIEW ─── */}
@@ -198,10 +184,10 @@ export function PlannerContainer() {
             <div className="flex items-center justify-between">
               <button
                 onClick={() => { setView('form'); setError(null); }}
-                className="text-[17px] font-medium"
+                className="text-[17px] font-semibold"
                 style={{ color: 'var(--color-accent)' }}
               >
-                ← 일정 수정
+                ← 돌아가기
               </button>
               {analysisResult && <ShareButton result={analysisResult} />}
             </div>
@@ -222,69 +208,22 @@ export function PlannerContainer() {
             {/* Results */}
             {analysisResult && !isAnalyzing && (
               <div className="space-y-6 fade-in">
-                {/* Overall tip */}
+                {/* 1. Overall tip */}
                 {analysisResult.overall_tip && (
                   <div className="apple-card p-5" style={{ borderLeft: '4px solid var(--color-accent)' }}>
-                    <p className="text-[17px] font-medium" style={{ color: 'var(--color-text)' }}>
+                    <p className="text-[18px] font-semibold" style={{ color: 'var(--color-text)' }}>
                       💡 {analysisResult.overall_tip}
                     </p>
                   </div>
                 )}
 
-                {/* Warnings */}
-                {analysisResult.overload_warning && (
-                  <div className="apple-card p-5" style={{ borderLeft: '4px solid var(--color-danger)' }}>
-                    <p className="text-[17px]" style={{ color: 'var(--color-text)' }}>⚠️ {analysisResult.overload_warning}</p>
-                  </div>
-                )}
-
-                {/* Block Calendar */}
+                {/* 2. Block Calendar with inline tips */}
                 <BlockCalendar
                   timeline={analysisResult.timeline}
-                  neuroTips={analysisResult.neuro_tips}
-                  onClickEntry={handleScrollToBriefing}
+                  scheduleTips={analysisResult.schedule_tips}
                 />
 
-                {/* Briefings */}
-                {analysisResult.briefings.length > 0 && (
-                  <div className="space-y-3">
-                    <h3 className="text-xl font-bold" style={{ color: 'var(--color-text)' }}>📋 브리핑</h3>
-                    {analysisResult.briefings.map((b, idx) => (
-                      <BriefingCard key={b.id} briefing={b} defaultOpen={idx === 0} />
-                    ))}
-                  </div>
-                )}
-
-                {/* 🧠 Neuroscience Summary */}
-                {analysisResult.daily_neuro_summary && (
-                  <div className="neuro-card p-5 space-y-3 fade-in">
-                    <h3 className="text-xl font-bold" style={{ color: 'var(--color-text)' }}>🧠 오늘의 뇌과학 제안</h3>
-                    <p className="text-[17px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
-                      {analysisResult.daily_neuro_summary}
-                    </p>
-
-                    {/* Neuro tips list */}
-                    {analysisResult.neuro_tips.length > 0 && (
-                      <div className="space-y-2 pt-2">
-                        {analysisResult.neuro_tips.map((tip, i) => (
-                          <div key={i} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: 'var(--color-surface)' }}>
-                            <span className="text-2xl">{tip.emoji}</span>
-                            <div>
-                              <p className="text-[16px] font-semibold" style={{ color: 'var(--color-text)' }}>
-                                {tip.label} · {tip.duration}분
-                              </p>
-                              <p className="text-[14px]" style={{ color: 'var(--color-text-muted)' }}>
-                                {tip.reason}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Advisors */}
+                {/* 3. Advisors — the main section */}
                 <AdvisorPanel
                   advisors={analysisResult.advisors}
                   tone={advisorTone}
@@ -292,21 +231,23 @@ export function PlannerContainer() {
                   onChangeAdvisors={() => setShowAdvisorSettings(true)}
                 />
 
-                {/* Recovery suggestions */}
-                {analysisResult.recovery_suggestions.length > 0 && (
-                  <div className="apple-card p-5 space-y-2" style={{ borderLeft: '4px solid var(--color-success)' }}>
-                    <h3 className="text-lg font-bold" style={{ color: 'var(--color-text)' }}>💚 회복 제안</h3>
-                    {analysisResult.recovery_suggestions.map((s, i) => (
-                      <p key={i} className="text-[16px]" style={{ color: 'var(--color-text-secondary)' }}>• {s}</p>
-                    ))}
+                {/* 4. Neuro summary — compact */}
+                {analysisResult.daily_neuro_summary && (
+                  <div className="apple-card p-5 fade-in" style={{ borderLeft: '4px solid var(--color-neuro)' }}>
+                    <p className="text-[17px] font-semibold mb-3" style={{ color: 'var(--color-text)' }}>
+                      🧠 {analysisResult.daily_neuro_summary}
+                    </p>
+                    {analysisResult.neuro_tips.length > 0 && (
+                      <div className="space-y-2">
+                        {analysisResult.neuro_tips.map((tip, i) => (
+                          <p key={i} className="text-[16px]" style={{ color: 'var(--color-text-secondary)' }}>
+                            {tip.emoji} {tip.label} · {tip.duration}분 — {tip.reason}
+                          </p>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
-
-                {/* Review */}
-                <ReviewSection review={review} onSave={updateReview} />
-
-                {/* Achievement */}
-                <AchievementTracker totalSchedules={weeklyStats.totalSchedules} completedCount={weeklyStats.totalCompleted} />
               </div>
             )}
           </>
@@ -314,8 +255,23 @@ export function PlannerContainer() {
       </main>
 
       {/* Modals */}
-      <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} apiKey={apiKey} onSaveApiKey={setApiKey} model={model} onSaveModel={setModel} />
-      <AdvisorSettings isOpen={showAdvisorSettings} onClose={() => setShowAdvisorSettings(false)} allAdvisors={ALL_ADVISORS} selectedIds={selectedAdvisorIds} onSave={setSelectedAdvisorIds} />
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        apiKey={apiKey}
+        onSaveApiKey={setApiKey}
+        model={model}
+        onSaveModel={setModel}
+        profile={profile}
+        onSaveProfile={setProfile}
+      />
+      <AdvisorSettings
+        isOpen={showAdvisorSettings}
+        onClose={() => setShowAdvisorSettings(false)}
+        allAdvisors={ALL_ADVISORS}
+        selectedIds={selectedAdvisorIds}
+        onSave={setSelectedAdvisorIds}
+      />
     </div>
   );
 }

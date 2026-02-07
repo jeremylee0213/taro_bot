@@ -25,11 +25,11 @@ export interface SchedulePreset {
 // ─── Profile Types ───
 
 export interface UserProfile {
-  traits: string[];         // e.g. ['조용한 ADHD', 'HSP']
-  medications: string[];    // e.g. ['아토목신 10mg', '콘서타 27mg 오전']
-  preferences: string[];    // e.g. ['러닝', '명상', '독서']
-  sleepGoal: string;        // e.g. '23:00~07:00'
-  notes: string;            // free-text
+  traits: string[];
+  medications: string[];
+  preferences: string[];
+  sleepGoal: string;
+  notes: string;
 }
 
 // ─── Advisor Types ───
@@ -52,48 +52,31 @@ export interface TimelineEntry {
   title: string;
   priority: Priority;
   category: Category;
-  buffer_before: number;
-  buffer_after: number;
 }
 
-export interface BriefingEntry {
-  id: number;
-  title: string;
-  confidence: number; // 1-5
-  before: string[];
-  during: string[];
-  after: string[];
-  transition: string;
-  emotion_note: string;
-  is_family: boolean;
+export interface ScheduleTip {
+  schedule_id: number;
+  tips: string[];
 }
 
 export interface AdvisorComment {
   name: string;
   initials: string;
   comment: string;
-  target_schedule: string;
 }
 
-// ─── Neuroscience suggestion from AI ───
-
 export interface NeuroSuggestion {
-  type: 'rest' | 'exercise' | 'meditation' | 'reading' | 'journaling' | 'walk' | 'breathe' | 'nap' | 'hydrate';
   emoji: string;
   label: string;
-  duration: number; // minutes
+  duration: number;
   reason: string;
-  insert_after: number; // schedule id after which to insert
 }
 
 export interface AnalysisResult {
   timeline: TimelineEntry[];
-  briefings: BriefingEntry[];
+  schedule_tips: ScheduleTip[];
   advisors: AdvisorComment[];
   overall_tip: string;
-  overload_warning: string | null;
-  recovery_suggestions: string[];
-  rest_mode_tip: string | null;
   neuro_tips: NeuroSuggestion[];
   daily_neuro_summary: string;
 }
@@ -101,7 +84,7 @@ export interface AnalysisResult {
 // ─── App State Types ───
 
 export interface DayData {
-  date: string; // YYYY-MM-DD
+  date: string;
   schedules: ScheduleItem[];
   energyLevel: EnergyLevel;
   review?: string;

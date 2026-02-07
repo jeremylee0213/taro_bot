@@ -1,4 +1,4 @@
-import { AnalysisResult, Priority, Category, TimelineEntry, BriefingEntry, AdvisorComment, NeuroSuggestion } from '@/types/schedule';
+import { AnalysisResult, Priority, Category, TimelineEntry, ScheduleTip, AdvisorComment, NeuroSuggestion } from '@/types/schedule';
 
 export function parseResponse(raw: string): AnalysisResult {
   try {
@@ -39,23 +39,14 @@ function normalizeResult(data: any): AnalysisResult {
         title: (t.title as string) || '',
         priority: asPriority(t.priority),
         category: asCategory(t.category),
-        buffer_before: (t.buffer_before as number) ?? 0,
-        buffer_after: (t.buffer_after as number) ?? 0,
       }))
     : [];
 
-  const briefings: BriefingEntry[] = Array.isArray(data.briefings)
+  const schedule_tips: ScheduleTip[] = Array.isArray(data.schedule_tips)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ? data.briefings.map((b: any, i: number): BriefingEntry => ({
-        id: (b.id as number) ?? i,
-        title: (b.title as string) || '',
-        confidence: (b.confidence as number) ?? 3,
-        before: Array.isArray(b.before) ? (b.before as string[]) : [],
-        during: Array.isArray(b.during) ? (b.during as string[]) : [],
-        after: Array.isArray(b.after) ? (b.after as string[]) : [],
-        transition: (b.transition as string) || '',
-        emotion_note: (b.emotion_note as string) || '',
-        is_family: (b.is_family as boolean) ?? false,
+    ? data.schedule_tips.map((s: any): ScheduleTip => ({
+        schedule_id: (s.schedule_id as number) ?? 0,
+        tips: Array.isArray(s.tips) ? (s.tips as string[]) : [],
       }))
     : [];
 
@@ -65,32 +56,24 @@ function normalizeResult(data: any): AnalysisResult {
         name: (a.name as string) || '',
         initials: (a.initials as string) || '',
         comment: (a.comment as string) || '',
-        target_schedule: (a.target_schedule as string) || '',
       }))
     : [];
 
   const neuro_tips: NeuroSuggestion[] = Array.isArray(data.neuro_tips)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ? data.neuro_tips.map((n: any): NeuroSuggestion => ({
-        type: n.type || 'rest',
         emoji: (n.emoji as string) || '🧠',
         label: (n.label as string) || '',
         duration: (n.duration as number) ?? 10,
         reason: (n.reason as string) || '',
-        insert_after: (n.insert_after as number) ?? 0,
       }))
     : [];
 
   return {
     timeline,
-    briefings,
+    schedule_tips,
     advisors,
     overall_tip: (data.overall_tip as string) || '',
-    overload_warning: (data.overload_warning as string) || null,
-    recovery_suggestions: Array.isArray(data.recovery_suggestions)
-      ? (data.recovery_suggestions as string[])
-      : [],
-    rest_mode_tip: (data.rest_mode_tip as string) || null,
     neuro_tips,
     daily_neuro_summary: (data.daily_neuro_summary as string) || '',
   };
@@ -99,16 +82,9 @@ function normalizeResult(data: any): AnalysisResult {
 function createTextFallback(text: string): AnalysisResult {
   return {
     timeline: [],
-    briefings: [{
-      id: 0, title: 'AI 분석 결과', confidence: 2,
-      before: [text.slice(0, 200)], during: [], after: [],
-      transition: '', emotion_note: 'JSON 파싱에 실패하여 텍스트로 표시합니다.', is_family: false,
-    }],
+    schedule_tips: [],
     advisors: [],
-    overall_tip: '',
-    overload_warning: null,
-    recovery_suggestions: [],
-    rest_mode_tip: null,
+    overall_tip: text.slice(0, 100),
     neuro_tips: [],
     daily_neuro_summary: '',
   };

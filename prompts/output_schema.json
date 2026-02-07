@@ -1,71 +1,60 @@
 {
   "type": "object",
-  "required": ["timeline", "briefings", "advisors", "overall_tip", "overload_warning", "recovery_suggestions", "rest_mode_tip", "neuro_tips", "daily_neuro_summary"],
+  "required": ["timeline", "schedule_tips", "advisors", "overall_tip", "neuro_tips", "daily_neuro_summary"],
   "properties": {
     "timeline": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "start", "end", "title", "priority", "category", "buffer_before", "buffer_after"],
+        "required": ["id", "start", "end", "title", "priority", "category"],
         "properties": {
           "id": { "type": "number" },
           "start": { "type": "string", "pattern": "^\\d{2}:\\d{2}$" },
           "end": { "type": "string", "pattern": "^\\d{2}:\\d{2}$" },
           "title": { "type": "string" },
           "priority": { "type": "string", "enum": ["high", "medium", "low"] },
-          "category": { "type": "string", "enum": ["work", "family", "personal", "health"] },
-          "buffer_before": { "type": "number" },
-          "buffer_after": { "type": "number" }
+          "category": { "type": "string", "enum": ["work", "family", "personal", "health"] }
         }
       }
     },
-    "briefings": {
+    "schedule_tips": {
       "type": "array",
+      "description": "필요한 일정에만. 준비물/리마인드/꿀팁.",
       "items": {
         "type": "object",
-        "required": ["id", "title", "confidence", "before", "during", "after", "transition", "emotion_note", "is_family"],
+        "required": ["schedule_id", "tips"],
         "properties": {
-          "id": { "type": "number" },
-          "title": { "type": "string" },
-          "confidence": { "type": "number", "minimum": 1, "maximum": 5 },
-          "before": { "type": "array", "items": { "type": "string" } },
-          "during": { "type": "array", "items": { "type": "string" } },
-          "after": { "type": "array", "items": { "type": "string" } },
-          "transition": { "type": "string" },
-          "emotion_note": { "type": "string" },
-          "is_family": { "type": "boolean" }
+          "schedule_id": { "type": "number" },
+          "tips": { "type": "array", "items": { "type": "string" }, "maxItems": 2 }
         }
       }
     },
     "advisors": {
       "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
       "items": {
         "type": "object",
-        "required": ["name", "initials", "comment", "target_schedule"],
+        "required": ["name", "initials", "comment"],
         "properties": {
           "name": { "type": "string" },
           "initials": { "type": "string", "maxLength": 2 },
-          "comment": { "type": "string" },
-          "target_schedule": { "type": "string" }
+          "comment": { "type": "string" }
         }
       }
     },
     "overall_tip": { "type": "string" },
-    "overload_warning": { "type": ["string", "null"] },
-    "recovery_suggestions": { "type": "array", "items": { "type": "string" } },
-    "rest_mode_tip": { "type": ["string", "null"] },
     "neuro_tips": {
       "type": "array",
+      "maxItems": 3,
       "items": {
         "type": "object",
-        "required": ["type", "emoji", "label", "duration", "reason", "insert_after"],
+        "required": ["emoji", "label", "duration", "reason"],
         "properties": {
-          "type": { "type": "string", "enum": ["rest", "exercise", "meditation", "reading", "journaling", "walk", "breathe", "nap", "hydrate"] },
           "emoji": { "type": "string" },
           "label": { "type": "string" },
           "duration": { "type": "number" },
-          "reason": { "type": "string" },
-          "insert_after": { "type": "number" }
+          "reason": { "type": "string" }
         }
       }
     },

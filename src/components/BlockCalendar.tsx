@@ -1,11 +1,10 @@
 'use client';
 
-import { TimelineEntry, NeuroSuggestion } from '@/types/schedule';
+import { TimelineEntry, ScheduleTip } from '@/types/schedule';
 
 interface BlockCalendarProps {
   timeline: TimelineEntry[];
-  neuroTips: NeuroSuggestion[];
-  onClickEntry: (id: number) => void;
+  scheduleTips: ScheduleTip[];
 }
 
 function timeToMinutes(t: string): number {
@@ -20,14 +19,14 @@ const CATEGORY_COLORS: Record<string, string> = {
   health: 'var(--color-category-health)',
 };
 
-const PRIORITY_OPACITY: Record<string, number> = {
-  high: 1,
-  medium: 0.85,
-  low: 0.65,
-};
-
-export function BlockCalendar({ timeline, neuroTips, onClickEntry }: BlockCalendarProps) {
+export function BlockCalendar({ timeline, scheduleTips }: BlockCalendarProps) {
   if (timeline.length === 0) return null;
+
+  // Build tips lookup
+  const tipsMap = new Map<number, string[]>();
+  for (const st of scheduleTips) {
+    tipsMap.set(st.schedule_id, st.tips);
+  }
 
   // Calculate time range
   const allStarts = timeline.map((t) => timeToMinutes(t.start));
@@ -35,12 +34,11 @@ export function BlockCalendar({ timeline, neuroTips, onClickEntry }: BlockCalend
   const minHour = Math.floor(Math.min(...allStarts) / 60);
   const maxHour = Math.ceil(Math.max(...allEnds) / 60);
 
-  // Generate hour slots
   const hours: number[] = [];
   for (let h = minHour; h <= maxHour; h++) hours.push(h);
 
   const totalMinutes = (maxHour - minHour) * 60;
-  const hourHeight = 72; // px per hour
+  const hourHeight = 72;
   const totalHeight = hours.length * hourHeight;
 
   const getTopPx = (time: string) => {
@@ -50,7 +48,7 @@ export function BlockCalendar({ timeline, neuroTips, onClickEntry }: BlockCalend
 
   const getHeightPx = (start: string, end: string) => {
     const dur = timeToMinutes(end) - timeToMinutes(start);
-    return Math.max((dur / totalMinutes) * totalHeight, 32);
+    return Math.max((dur / totalMinutes) * totalHeight, 40);
   };
 
   return (
@@ -58,63 +56,42 @@ export function BlockCalendar({ timeline, neuroTips, onClickEntry }: BlockCalend
       <h3 className="text-xl font-bold mb-4" style={{ color: 'var(--color-text)' }}>📅 오늘의 일정</h3>
 
       <div className="block-calendar" style={{ minHeight: `${totalHeight}px` }}>
-        {/* Hour labels + lines */}
         {hours.map((h, idx) => (
           <div key={`label-${h}`} className="contents">
             <div className="block-hour-label" style={{ height: `${hourHeight}px`, lineHeight: `${hourHeight}px` }}>
               {String(h).padStart(2, '0')}
             </div>
-            <div
-              className="block-hour-line"
-              style={{ height: `${hourHeight}px`, position: idx === 0 ? 'relative' : 'relative' }}
-            >
-              {/* Events placed in first hour-line only to avoid duplication */}
+            <div className="block-hour-line" style={{ height: `${hourHeight}px`, position: 'relative' }}>
               {idx === 0 && (
                 <>
-                  {/* Schedule blocks */}
-                  {timeline.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="block-event"
-                      onClick={() => onClickEntry(entry.id)}
-                      style={{
-                        top: `${getTopPx(entry.start)}px`,
-                        height: `${getHeightPx(entry.start, entry.end)}px`,
-                        backgroundColor: CATEGORY_COLORS[entry.category] || CATEGORY_COLORS.work,
-                        opacity: PRIORITY_OPACITY[entry.priority] || 0.85,
-                      }}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span style={{ fontSize: '13px', opacity: 0.8 }}>
-                          {entry.start}~{entry.end}
-                        </span>
-                      </div>
-                      <div className="truncate" style={{ fontSize: '15px' }}>{entry.title}</div>
-                      {entry.priority === 'high' && (
-                        <span style={{ fontSize: '11px', opacity: 0.7 }}>⚡ 중요</span>
-                      )}
-                    </div>
-                  ))}
-
-                  {/* Neuro suggestion blocks */}
-                  {neuroTips.map((tip, i) => {
-                    // Find the schedule this tip comes after
-                    const afterEntry = timeline.find(t => t.id === tip.insert_after);
-                    if (!afterEntry) return null;
-                    const tipStart = afterEntry.end;
-                    const tipEndMin = timeToMinutes(tipStart) + tip.duration;
-                    const tipEnd = `${String(Math.floor(tipEndMin / 60)).padStart(2, '0')}:${String(tipEndMin % 60).padStart(2, '0')}`;
-
+                  {timeline.map((entry) => {
+                    const tips = tipsMap.get(entry.id);
                     return (
                       <div
-                        key={`neuro-${i}`}
-                        className="block-neuro"
+                        key={entry.id}
+                        className="block-event"
                         style={{
-                          top: `${getTopPx(tipStart)}px`,
-                          height: `${getHeightPx(tipStart, tipEnd)}px`,
+                          top: `${getTopPx(entry.start)}px`,
+                          height: `${getHeightPx(entry.start, entry.end)}px`,
+                          backgroundColor: CATEGORY_COLORS[entry.category] || CATEGORY_COLORS.work,
+                          opacity: entry.priority === 'high' ? 1 : entry.priority === 'medium' ? 0.85 : 0.65,
                         }}
                       >
-                        {tip.emoji} {tip.label} ({tip.duration}분)
+                        <div className="flex items-center justify-between">
+                          <span style={{ fontSize: '14px', opacity: 0.85 }}>
+                            {entry.start}~{entry.end}
+                          </span>
+                          {entry.priority === 'high' && (
+                            <span style={{ fontSize: '12px', opacity: 0.8 }}>⚡</span>
+                          )}
+                        </div>
+                        <div className="truncate" style={{ fontSize: '16px', fontWeight: 600 }}>{entry.title}</div>
+                        {/* Inline tips */}
+                        {tips && tips.length > 0 && (
+                          <div style={{ fontSize: '12px', opacity: 0.9, marginTop: '2px' }}>
+                            💡 {tips.join(' · ')}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
