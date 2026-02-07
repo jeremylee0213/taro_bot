@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { ScheduleItem } from '@/types/schedule';
 
 interface QuickInputProps {
@@ -18,24 +18,13 @@ const CATEGORY_LABELS: Record<string, { emoji: string; label: string }> = {
   health: { emoji: '🏃', label: '건강' },
 };
 
-/**
- * Parse free-form text into ScheduleItem[].
- * Supports:
- *  - "9시 투자자미팅"
- *  - "09:00 투자자미팅"
- *  - "9시반 독서"
- *  - "14시~16시 프로젝트"
- *  - "오전 9시 회의"  /  "오후 2시 미팅"
- * Lines/commas/periods are all valid delimiters.
- */
 function parseScheduleText(text: string): ScheduleItem[] {
   const items: ScheduleItem[] = [];
   const parts = text.split(/[,\n.]+/).map(s => s.trim()).filter(Boolean);
 
   for (const part of parts) {
-    // optional 오전/오후 prefix
     const ampmMatch = part.match(/^(오전|오후)\s*/);
-    let isPM = ampmMatch?.[1] === '오후';
+    const isPM = ampmMatch?.[1] === '오후';
     const cleaned = ampmMatch ? part.replace(/^(오전|오후)\s*/, '') : part;
 
     const match = cleaned.match(
@@ -49,7 +38,7 @@ function parseScheduleText(text: string): ScheduleItem[] {
       if (isPM && startH < 12) startH += 12;
 
       let endH = match[3] ? parseInt(match[3]) : startH + 1;
-      let endM = match[4] ? parseInt(match[4]) : 0;
+      const endM = match[4] ? parseInt(match[4]) : 0;
       if (match[3] && isPM && endH < 12) endH += 12;
       if (endH <= startH && !match[3]) endH = startH + 1;
 
@@ -66,15 +55,7 @@ function parseScheduleText(text: string): ScheduleItem[] {
       if (/미팅|발표|면접|투자|계약|중요|프레젠|보고/.test(title)) priority = 'high';
       else if (/정리|메일|확인|체크|청소/.test(title)) priority = 'low';
 
-      items.push({
-        id: generateId(),
-        startTime,
-        endTime,
-        title,
-        priority,
-        category,
-        emotion: 'normal',
-      });
+      items.push({ id: generateId(), startTime, endTime, title, priority, category, emotion: 'normal' });
     }
   }
 
@@ -84,8 +65,10 @@ function parseScheduleText(text: string): ScheduleItem[] {
 export function QuickInput({ onAnalyze }: QuickInputProps) {
   const [text, setText] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [overIdx, setOverIdx] = useState<number | null>(null);
+  const [reorderedItems, setReorderedItems] = useState<ScheduleItem[] | null>(null);
 
-  // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -93,17 +76,49 @@ export function QuickInput({ onAnalyze }: QuickInputProps) {
     }
   }, [text]);
 
-  // Real-time parsing preview
   const parsedItems = useMemo(() => parseScheduleText(text), [text]);
+  const displayItems = reorderedItems || parsedItems;
+
+  const handleDragStart = useCallback((idx: number) => {
+    setDragIdx(idx);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    setOverIdx(idx);
+  }, []);
+
+  const handleDrop = useCallback((idx: number) => {
+    if (dragIdx === null || dragIdx === idx) {
+      setDragIdx(null);
+      setOverIdx(null);
+      return;
+    }
+    const items = [...displayItems];
+    const [moved] = items.splice(dragIdx, 1);
+    items.splice(idx, 0, moved);
+    setReorderedItems(items);
+    setDragIdx(null);
+    setOverIdx(null);
+  }, [dragIdx, displayItems]);
+
+  const handleDragEnd = useCallback(() => {
+    setDragIdx(null);
+    setOverIdx(null);
+  }, []);
+
+  useEffect(() => {
+    setReorderedItems(null);
+  }, [text]);
 
   const handleAnalyze = (restMode: boolean) => {
-    if (parsedItems.length === 0) return;
-    onAnalyze(restMode ? [] : parsedItems);
+    const items = restMode ? [] : displayItems;
+    if (!restMode && items.length === 0) return;
+    onAnalyze(items);
   };
 
   return (
     <div className="apple-card p-5 space-y-4">
-      {/* Header */}
       <div className="flex items-center gap-2">
         <span className="text-xl">📝</span>
         <h3 className="text-lg font-bold" style={{ color: 'var(--color-text)' }}>
@@ -111,7 +126,6 @@ export function QuickInput({ onAnalyze }: QuickInputProps) {
         </h3>
       </div>
 
-      {/* Single textarea */}
       <textarea
         ref={textareaRef}
         value={text}
@@ -122,19 +136,28 @@ export function QuickInput({ onAnalyze }: QuickInputProps) {
         style={{ fontSize: '17px', lineHeight: '1.6' }}
       />
 
-      {/* Real-time parsed preview */}
-      {parsedItems.length > 0 && (
+      {displayItems.length > 0 && (
         <div className="space-y-2 fade-in">
           <p className="text-[14px] font-medium" style={{ color: 'var(--color-text-muted)' }}>
-            인식된 일정 ({parsedItems.length}개)
+            인식된 일정 ({displayItems.length}개) — 드래그로 순서 변경
           </p>
           <div className="space-y-1.5">
-            {parsedItems.map((item, idx) => (
+            {displayItems.map((item, idx) => (
               <div
-                key={idx}
-                className="flex items-center gap-3 py-2 px-3 rounded-xl"
+                key={item.id}
+                draggable
+                onDragStart={() => handleDragStart(idx)}
+                onDragOver={(e) => handleDragOver(e, idx)}
+                onDrop={() => handleDrop(idx)}
+                onDragEnd={handleDragEnd}
+                className={`flex items-center gap-3 py-2 px-3 rounded-xl transition-all ${
+                  dragIdx === idx ? 'dragging' : ''
+                } ${overIdx === idx && dragIdx !== idx ? 'drag-over' : ''}`}
                 style={{ background: 'var(--color-surface)' }}
               >
+                <span className="drag-handle text-[14px]" style={{ color: 'var(--color-text-muted)' }}>
+                  ≡
+                </span>
                 <div
                   className="w-1 h-8 rounded-full flex-shrink-0"
                   style={{
@@ -161,11 +184,10 @@ export function QuickInput({ onAnalyze }: QuickInputProps) {
         </div>
       )}
 
-      {/* Action buttons */}
       <div className="flex gap-3 pt-1">
         <button
           onClick={() => handleAnalyze(false)}
-          disabled={parsedItems.length === 0}
+          disabled={displayItems.length === 0}
           className="btn-primary flex-1 py-3 disabled:opacity-40"
         >
           🔍 AI 분석하기
@@ -179,15 +201,13 @@ export function QuickInput({ onAnalyze }: QuickInputProps) {
         </button>
       </div>
 
-      {/* Help text */}
-      {parsedItems.length === 0 && text.trim().length === 0 && (
+      {displayItems.length === 0 && text.trim().length === 0 && (
         <p className="text-center text-[14px] pt-1" style={{ color: 'var(--color-text-muted)' }}>
           시간 + 할 일을 입력하면 자동으로 인식됩니다
         </p>
       )}
 
-      {/* Parse error hint */}
-      {text.trim().length > 0 && parsedItems.length === 0 && (
+      {text.trim().length > 0 && displayItems.length === 0 && (
         <p className="text-center text-[14px] pt-1" style={{ color: 'var(--color-priority-high)' }}>
           ⚠️ 시간을 인식하지 못했어요 — &quot;9시 회의&quot; 형식으로 입력해주세요
         </p>
@@ -196,5 +216,4 @@ export function QuickInput({ onAnalyze }: QuickInputProps) {
   );
 }
 
-// Re-export for use in PlannerContainer
 export { parseScheduleText };

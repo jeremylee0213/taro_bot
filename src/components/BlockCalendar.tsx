@@ -5,6 +5,7 @@ import { TimelineEntry, ScheduleTip } from '@/types/schedule';
 interface BlockCalendarProps {
   timeline: TimelineEntry[];
   scheduleTips: ScheduleTip[];
+  onEventClick?: (scheduleId: number) => void;
 }
 
 function timeToMinutes(t: string): number {
@@ -19,7 +20,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   health: 'var(--color-category-health)',
 };
 
-export function BlockCalendar({ timeline, scheduleTips }: BlockCalendarProps) {
+export function BlockCalendar({ timeline, scheduleTips, onEventClick }: BlockCalendarProps) {
   if (timeline.length === 0) return null;
 
   // Build tips lookup
@@ -70,6 +71,7 @@ export function BlockCalendar({ timeline, scheduleTips }: BlockCalendarProps) {
                       <div
                         key={entry.id}
                         className="block-event"
+                        onClick={() => onEventClick?.(entry.id)}
                         style={{
                           top: `${getTopPx(entry.start)}px`,
                           height: `${getHeightPx(entry.start, entry.end)}px`,

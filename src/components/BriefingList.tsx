@@ -12,6 +12,7 @@ function BriefingCard({ briefing, defaultOpen }: { briefing: BriefingEntry; defa
 
   return (
     <div
+      id={`briefing-${briefing.id}`}
       className="rounded-xl overflow-hidden transition-all"
       style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
     >

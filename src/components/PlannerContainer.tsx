@@ -10,6 +10,7 @@ import {
   UserProfile,
   ScheduleItem,
   DetailMode,
+  Category,
 } from '@/types/schedule';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useTheme } from '@/hooks/useTheme';
@@ -39,7 +40,6 @@ const DEFAULT_PROFILE: UserProfile = {
   notes: '',
 };
 
-// ─── All Advisors ───
 const ALL_ADVISORS: Advisor[] = [
   { id: 'em', name: '일론 머스크', nameEn: 'Elon Musk', initials: 'EM', description: '본질 집중, 과감한 결단', style: 'visionary' },
   { id: 'wb', name: '워런 버핏', nameEn: 'Warren Buffett', initials: 'WB', description: '장기적 가치, 인내', style: 'investor' },
@@ -66,11 +66,27 @@ const MODE_LABELS: Record<DetailMode, string> = {
   long: '길게',
 };
 
+type ResultTab = 'timeline' | 'briefing' | 'advisor' | 'neuro';
+
+const TAB_LABELS: { key: ResultTab; label: string; emoji: string }[] = [
+  { key: 'timeline', label: '타임라인', emoji: '📅' },
+  { key: 'briefing', label: '브리핑', emoji: '📋' },
+  { key: 'advisor', label: '조언자', emoji: '💬' },
+  { key: 'neuro', label: '뇌과학', emoji: '🧠' },
+];
+
+const CATEGORY_FILTERS: { key: Category | 'all'; label: string; emoji: string }[] = [
+  { key: 'all', label: '전체', emoji: '📌' },
+  { key: 'work', label: '업무', emoji: '💼' },
+  { key: 'family', label: '가족', emoji: '🏠' },
+  { key: 'personal', label: '개인', emoji: '👤' },
+  { key: 'health', label: '건강', emoji: '🏃' },
+];
+
 export function PlannerContainer() {
   const [date, setDate] = useState(getToday());
   const [theme, toggleTheme] = useTheme();
 
-  // Settings
   const [apiKey, setApiKey] = useLocalStorage('ceo-planner-apikey', '');
   const [model, setModel] = useLocalStorage('ceo-planner-model', 'gpt-4o');
   const [selectedAdvisorIds, setSelectedAdvisorIds] = useLocalStorage<string[]>('ceo-planner-advisors', DEFAULT_ADVISOR_IDS);
@@ -78,31 +94,30 @@ export function PlannerContainer() {
   const [profile, setProfile] = useLocalStorage<UserProfile>('ceo-planner-profile', DEFAULT_PROFILE);
   const [detailMode, setDetailMode] = useLocalStorage<DetailMode>('ceo-planner-detail-mode', 'medium');
 
-  // Schedule store
   const {
     energyLevel, isLoaded,
     updateSchedules, updateEnergyLevel, updateCompletedCount,
   } = useScheduleStore(date);
 
-  // Analysis
   const [view, setView] = useState<AnalysisView>('form');
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState<AnalysisProgress>({ step: 0, total: 3, label: '' });
   const [error, setError] = useState<string | null>(null);
+  const [streamText, setStreamText] = useState('');
 
-  // Modals
+  const [activeTab, setActiveTab] = useState<ResultTab>('timeline');
+  const [categoryFilter, setCategoryFilter] = useState<Category | 'all'>('all');
+
   const [showSettings, setShowSettings] = useState(false);
   const [showAdvisorSettings, setShowAdvisorSettings] = useState(false);
 
-  // Store last-used schedules for advisor re-generation
   const lastSchedulesRef = useRef<ScheduleItem[]>([]);
+  const touchStartX = useRef(0);
 
-  const { getCached, setCache } = useAnalysisCache();
+  const { setCache } = useAnalysisCache();
 
-  const selectedAdvisors = ALL_ADVISORS.filter((a) => selectedAdvisorIds.includes(a.id));
-
-  // ─── Analysis handler ───
+  // ─── Streaming Analysis (#1) ───
   const runAnalysis = useCallback(
     async (items: ScheduleItem[], advisorIds?: string[]) => {
       if (!apiKey) { setShowSettings(true); return; }
@@ -117,10 +132,12 @@ export function PlannerContainer() {
 
       setIsAnalyzing(true);
       setError(null);
+      setStreamText('');
       setView('result');
+      setActiveTab('timeline');
 
       try {
-        setProgress({ step: 1, total: 3, label: '준비 중...' });
+        setProgress({ step: 1, total: 3, label: '프롬프트 준비 중...' });
         const messages = assemblePrompt({
           schedules, energyLevel,
           advisors: advisorsToUse,
@@ -139,20 +156,43 @@ export function PlannerContainer() {
         ].some((m) => model.startsWith(m));
 
         const maxTokens = detailMode === 'long' ? 8192 : detailMode === 'medium' ? 6144 : 4096;
+        const isReasoningModel = ['o1', 'o3'].some((m) => model.startsWith(m));
 
-        const response = await openai.chat.completions.create({
-          model,
-          messages: messages as Parameters<typeof openai.chat.completions.create>[0]['messages'],
-          response_format: { type: 'json_object' },
-          ...(useNewTokenParam ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
-        });
+        if (isReasoningModel) {
+          const response = await openai.chat.completions.create({
+            model,
+            messages: messages as Parameters<typeof openai.chat.completions.create>[0]['messages'],
+            response_format: { type: 'json_object' },
+            ...(useNewTokenParam ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
+          });
+          const raw = response.choices[0]?.message?.content || '';
+          setProgress({ step: 3, total: 3, label: '완료!' });
+          const result = parseResponse(raw);
+          setAnalysisResult(result);
+          setCache(schedules, energyLevel, idsToUse, result);
+        } else {
+          // Streaming
+          const stream = await openai.chat.completions.create({
+            model,
+            messages: messages as Parameters<typeof openai.chat.completions.create>[0]['messages'],
+            response_format: { type: 'json_object' },
+            stream: true,
+            ...(useNewTokenParam ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
+          });
 
-        const raw = response.choices[0]?.message?.content || '';
-        setProgress({ step: 3, total: 3, label: '완료!' });
-        const result = parseResponse(raw);
+          let accumulated = '';
+          for await (const chunk of stream) {
+            const delta = chunk.choices[0]?.delta?.content || '';
+            accumulated += delta;
+            setStreamText(accumulated);
+          }
 
-        setAnalysisResult(result);
-        setCache(schedules, energyLevel, idsToUse, result);
+          setProgress({ step: 3, total: 3, label: '완료!' });
+          const result = parseResponse(accumulated);
+          setAnalysisResult(result);
+          setCache(schedules, energyLevel, idsToUse, result);
+        }
+
         updateCompletedCount(schedules.length);
       } catch (err: unknown) {
         const errMsg = err instanceof Error ? err.message : '알 수 없는 오류';
@@ -165,17 +205,17 @@ export function PlannerContainer() {
         }
       } finally {
         setIsAnalyzing(false);
+        setStreamText('');
       }
     },
     [apiKey, model, energyLevel, selectedAdvisorIds, advisorTone, profile, detailMode, setCache, updateCompletedCount, updateSchedules]
   );
 
-  // ─── Advisor change → immediate re-generation ───
+  // ─── Advisor change → re-generation ───
   const handleAdvisorChange = useCallback(
     (newIds: string[]) => {
       setSelectedAdvisorIds(newIds);
       setShowAdvisorSettings(false);
-      // Re-run analysis with new advisors using last schedules
       if (lastSchedulesRef.current.length > 0) {
         runAnalysis(lastSchedulesRef.current, newIds);
       }
@@ -183,10 +223,55 @@ export function PlannerContainer() {
     [setSelectedAdvisorIds, runAnalysis]
   );
 
+  // ─── Timeline click → scroll to briefing (#6) ───
+  const scrollToBriefing = useCallback((scheduleId: number) => {
+    setActiveTab('briefing');
+    setTimeout(() => {
+      const target = document.getElementById(`briefing-${scheduleId}`);
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
+  }, []);
+
+  // ─── Swipe gesture (#10) ───
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    const diff = e.changedTouches[0].clientX - touchStartX.current;
+    if (Math.abs(diff) > 80) {
+      const d = new Date(date);
+      d.setDate(d.getDate() + (diff > 0 ? -1 : 1));
+      const newDate = d.toISOString().split('T')[0];
+      setDate(newDate);
+    }
+  }, [date]);
+
+  // ─── Category filter (#9) ───
+  const filteredTimeline = analysisResult?.timeline.filter(
+    (t) => categoryFilter === 'all' || t.category === categoryFilter
+  ) || [];
+
+  const filteredTips = analysisResult?.schedule_tips.filter(
+    (st) => categoryFilter === 'all' || filteredTimeline.some((t) => t.id === st.schedule_id)
+  ) || [];
+
+  const hasBriefings = analysisResult?.briefings && analysisResult.briefings.length > 0;
+  const hasEnergy = analysisResult?.energy_chart && analysisResult.energy_chart.length > 0;
+  const visibleTabs = TAB_LABELS.filter((tab) => {
+    if (tab.key === 'briefing' && !hasBriefings) return false;
+    return true;
+  });
+
   if (!isLoaded) return <div className="min-h-screen" style={{ background: 'var(--color-bg)' }} />;
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
+    <div
+      className="min-h-screen swipe-container"
+      style={{ background: 'var(--color-bg)' }}
+      onTouchStart={view === 'result' ? handleTouchStart : undefined}
+      onTouchEnd={view === 'result' ? handleTouchEnd : undefined}
+    >
       <DateHeader
         date={date}
         onDateChange={setDate}
@@ -201,7 +286,6 @@ export function PlannerContainer() {
         {/* ─── FORM VIEW ─── */}
         {view === 'form' && (
           <>
-            {/* Mode selector */}
             <div className="apple-card p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[15px] font-semibold" style={{ color: 'var(--color-text)' }}>
@@ -230,7 +314,6 @@ export function PlannerContainer() {
                 {detailMode === 'long' && '전체 브리핑 + 에너지 차트 + 상세 분석'}
               </p>
             </div>
-
             <QuickInput onAnalyze={runAnalysis} />
           </>
         )}
@@ -238,7 +321,6 @@ export function PlannerContainer() {
         {/* ─── RESULT VIEW ─── */}
         {view === 'result' && (
           <>
-            {/* Navigation */}
             <div className="flex items-center justify-between">
               <button
                 onClick={() => { setView('form'); setError(null); }}
@@ -250,10 +332,7 @@ export function PlannerContainer() {
               <div className="flex items-center gap-3">
                 <span
                   className="text-[14px] px-3 py-1 rounded-full font-medium"
-                  style={{
-                    background: 'var(--color-accent-light)',
-                    color: 'var(--color-accent)',
-                  }}
+                  style={{ background: 'var(--color-accent-light)', color: 'var(--color-accent)' }}
                 >
                   {MODE_LABELS[detailMode]}
                 </span>
@@ -261,10 +340,14 @@ export function PlannerContainer() {
               </div>
             </div>
 
-            {/* Loading */}
-            {isAnalyzing && <AnalysisSkeleton progress={progress} />}
+            {!isAnalyzing && (
+              <p className="text-center text-[12px]" style={{ color: 'var(--color-text-muted)' }}>
+                ← 스와이프로 날짜 이동 →
+              </p>
+            )}
 
-            {/* Error */}
+            {isAnalyzing && <AnalysisSkeleton progress={progress} streamText={streamText || undefined} />}
+
             {error && (
               <div className="apple-card p-5 fade-in" style={{ borderLeft: '4px solid var(--color-danger)' }}>
                 <p className="text-[17px] mb-3" style={{ color: 'var(--color-text)' }}>{error}</p>
@@ -274,10 +357,8 @@ export function PlannerContainer() {
               </div>
             )}
 
-            {/* Results */}
             {analysisResult && !isAnalyzing && (
-              <div className="space-y-6 fade-in">
-                {/* 1. Overall tip */}
+              <div className="space-y-5 fade-in">
                 {analysisResult.overall_tip && (
                   <div className="apple-card p-5" style={{ borderLeft: '4px solid var(--color-accent)' }}>
                     <p className="text-[18px] font-semibold" style={{ color: 'var(--color-text)' }}>
@@ -286,43 +367,78 @@ export function PlannerContainer() {
                   </div>
                 )}
 
-                {/* 2. Block Calendar with inline tips */}
-                <BlockCalendar
-                  timeline={analysisResult.timeline}
-                  scheduleTips={analysisResult.schedule_tips}
-                />
+                {/* Tab bar (#8) */}
+                <div className="tab-bar">
+                  {visibleTabs.map((tab) => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setActiveTab(tab.key)}
+                      className={activeTab === tab.key ? 'active' : ''}
+                    >
+                      {tab.emoji} {tab.label}
+                    </button>
+                  ))}
+                </div>
 
-                {/* 3. Energy Chart (medium/long only) */}
-                {analysisResult.energy_chart && analysisResult.energy_chart.length > 0 && (
-                  <EnergyChart data={analysisResult.energy_chart} />
+                {/* TAB: Timeline */}
+                {activeTab === 'timeline' && (
+                  <div className="space-y-4 fade-in">
+                    <div className="flex gap-2 flex-wrap">
+                      {CATEGORY_FILTERS.map((f) => (
+                        <button
+                          key={f.key}
+                          onClick={() => setCategoryFilter(f.key)}
+                          className={`filter-chip ${categoryFilter === f.key ? 'active' : ''}`}
+                        >
+                          {f.emoji} {f.label}
+                        </button>
+                      ))}
+                    </div>
+                    <BlockCalendar
+                      timeline={filteredTimeline}
+                      scheduleTips={filteredTips}
+                      onEventClick={hasBriefings ? scrollToBriefing : undefined}
+                    />
+                    {hasEnergy && <EnergyChart data={analysisResult.energy_chart!} />}
+                  </div>
                 )}
 
-                {/* 4. Briefings (medium/long only) */}
-                {analysisResult.briefings && analysisResult.briefings.length > 0 && (
-                  <BriefingList briefings={analysisResult.briefings} />
+                {/* TAB: Briefing */}
+                {activeTab === 'briefing' && hasBriefings && (
+                  <div className="fade-in">
+                    <BriefingList briefings={analysisResult.briefings!} />
+                  </div>
                 )}
 
-                {/* 5. Advisors — the main section */}
-                <AdvisorPanel
-                  advisors={analysisResult.advisors}
-                  tone={advisorTone}
-                  onChangeTone={setAdvisorTone}
-                  onChangeAdvisors={() => setShowAdvisorSettings(true)}
-                />
+                {/* TAB: Advisor */}
+                {activeTab === 'advisor' && (
+                  <div className="fade-in">
+                    <AdvisorPanel
+                      advisors={analysisResult.advisors}
+                      tone={advisorTone}
+                      onChangeTone={setAdvisorTone}
+                      onChangeAdvisors={() => setShowAdvisorSettings(true)}
+                    />
+                  </div>
+                )}
 
-                {/* 6. Neuro summary — compact */}
-                {analysisResult.daily_neuro_summary && (
-                  <div className="apple-card p-5 fade-in" style={{ borderLeft: '4px solid var(--color-neuro)' }}>
-                    <p className="text-[17px] font-semibold mb-3" style={{ color: 'var(--color-text)' }}>
-                      🧠 {analysisResult.daily_neuro_summary}
-                    </p>
-                    {analysisResult.neuro_tips.length > 0 && (
-                      <div className="space-y-2">
-                        {analysisResult.neuro_tips.map((tip, i) => (
-                          <p key={i} className="text-[16px]" style={{ color: 'var(--color-text-secondary)' }}>
-                            {tip.emoji} {tip.label} · {tip.duration}분 — {tip.reason}
-                          </p>
-                        ))}
+                {/* TAB: Neuro */}
+                {activeTab === 'neuro' && (
+                  <div className="fade-in">
+                    {analysisResult.daily_neuro_summary && (
+                      <div className="apple-card p-5" style={{ borderLeft: '4px solid var(--color-neuro)' }}>
+                        <p className="text-[17px] font-semibold mb-3" style={{ color: 'var(--color-text)' }}>
+                          🧠 {analysisResult.daily_neuro_summary}
+                        </p>
+                        {analysisResult.neuro_tips.length > 0 && (
+                          <div className="space-y-2">
+                            {analysisResult.neuro_tips.map((tip, i) => (
+                              <p key={i} className="text-[16px]" style={{ color: 'var(--color-text-secondary)' }}>
+                                {tip.emoji} {tip.label} · {tip.duration}분 — {tip.reason}
+                              </p>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -333,7 +449,6 @@ export function PlannerContainer() {
         )}
       </main>
 
-      {/* Modals */}
       <SettingsModal
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}

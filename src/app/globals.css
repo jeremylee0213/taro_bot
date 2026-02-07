@@ -218,3 +218,89 @@ input:focus, textarea:focus, select:focus {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
 }
+
+/* ─── Typing indicator (3 bouncing dots) ─── */
+.typing-indicator {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.typing-indicator span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  animation: typingBounce 1.4s infinite ease-in-out both;
+}
+.typing-indicator span:nth-child(1) { animation-delay: 0s; }
+.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typingBounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+/* ─── Tab bar ─── */
+.tab-bar {
+  display: flex;
+  gap: 0;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1.5px solid var(--color-border);
+}
+.tab-bar button {
+  flex: 1;
+  padding: 10px 4px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s;
+  border: none;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+}
+.tab-bar button.active {
+  background: var(--color-accent);
+  color: #fff;
+}
+.tab-bar button:not(:last-child) {
+  border-right: 1px solid var(--color-border);
+}
+
+/* ─── Category filter chips ─── */
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  transition: all 0.2s;
+  cursor: pointer;
+}
+.filter-chip.active {
+  border-color: var(--color-accent);
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+}
+
+/* ─── Drag handle ─── */
+.drag-handle {
+  cursor: grab;
+  opacity: 0.4;
+  transition: opacity 0.2s;
+  touch-action: none;
+}
+.drag-handle:hover { opacity: 0.8; }
+.drag-handle:active { cursor: grabbing; }
+.dragging { opacity: 0.5; transform: scale(0.98); }
+.drag-over { border-top: 2px solid var(--color-accent) !important; }
+
+/* ─── Swipe area ─── */
+.swipe-container {
+  touch-action: pan-y;
+  overflow: hidden;
+}
