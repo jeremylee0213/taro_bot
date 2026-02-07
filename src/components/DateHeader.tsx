@@ -30,7 +30,7 @@ export function DateHeader({
 }: DateHeaderProps) {
   return (
     <header className="apple-card px-5 py-4" style={{ borderRadius: 0, borderBottom: '1px solid var(--color-border)' }}>
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         {/* Top row */}
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-xl font-bold" style={{ color: 'var(--color-text)' }}>Daily CEO Planner</h1>

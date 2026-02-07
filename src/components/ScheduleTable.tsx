@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback, useRef } from 'react';
 import { TimelineEntry, ScheduleTip, BriefingEntry } from '@/types/schedule';
 
 interface ScheduleTableProps {
@@ -8,10 +9,10 @@ interface ScheduleTableProps {
   briefings?: BriefingEntry[];
 }
 
-const PRIORITY_BADGE: Record<string, { color: string; emoji: string }> = {
-  high: { color: 'var(--color-priority-high)', emoji: '🔴' },
-  medium: { color: 'var(--color-priority-medium)', emoji: '🔵' },
-  low: { color: 'var(--color-priority-low)', emoji: '⚪' },
+const PRIORITY_BADGE: Record<string, { color: string; emoji: string; label: string }> = {
+  high: { color: 'var(--color-priority-high)', emoji: '🔴', label: '높음' },
+  medium: { color: 'var(--color-priority-medium)', emoji: '🔵', label: '보통' },
+  low: { color: 'var(--color-priority-low)', emoji: '⚪', label: '낮음' },
 };
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -20,6 +21,50 @@ const CATEGORY_EMOJI: Record<string, string> = {
   personal: '🧘',
   health: '🏃',
 };
+
+async function copyItemAsImage(el: HTMLElement) {
+  try {
+    const { default: html2canvas } = await import('html2canvas');
+    const canvas = await html2canvas(el, {
+      backgroundColor: '#ffffff',
+      scale: 2,
+      useCORS: true,
+    });
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      try {
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob }),
+        ]);
+      } catch {
+        // fallback: download
+        const link = document.createElement('a');
+        link.download = 'schedule-item.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      }
+    }, 'image/png');
+  } catch {
+    // silent fail
+  }
+}
+
+async function downloadItemAsImage(el: HTMLElement, name: string) {
+  try {
+    const { default: html2canvas } = await import('html2canvas');
+    const canvas = await html2canvas(el, {
+      backgroundColor: '#ffffff',
+      scale: 2,
+      useCORS: true,
+    });
+    const link = document.createElement('a');
+    link.download = `${name}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  } catch {
+    // silent fail
+  }
+}
 
 export function ScheduleTable({ timeline, scheduleTips, briefings }: ScheduleTableProps) {
   if (timeline.length === 0) return null;
@@ -37,72 +82,138 @@ export function ScheduleTable({ timeline, scheduleTips, briefings }: ScheduleTab
   }
 
   return (
-    <div className="apple-card p-5 fade-in">
-      <h3 className="text-[20px] font-bold mb-4" style={{ color: 'var(--color-text)' }}>
-        📅 오늘의 일정
+    <div className="apple-card p-4 sm:p-6 fade-in">
+      <h3 className="text-[20px] sm:text-[22px] font-bold mb-4" style={{ color: 'var(--color-text)' }}>
+        📅 오늘의 일정 + 조언
       </h3>
 
       <div className="space-y-3">
-        {timeline.map((entry) => {
-          const tips = tipsMap.get(entry.id);
-          const briefing = briefingMap.get(entry.id);
-          const badge = PRIORITY_BADGE[entry.priority] || PRIORITY_BADGE.medium;
+        {timeline.map((entry, idx) => (
+          <ScheduleRow
+            key={entry.id}
+            entry={entry}
+            index={idx + 1}
+            tips={tipsMap.get(entry.id)}
+            briefing={briefingMap.get(entry.id)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
-          return (
-            <div
-              key={entry.id}
-              className="rounded-xl p-4 transition-all"
-              style={{
-                background: 'var(--color-surface)',
-                borderLeft: `4px solid ${badge.color}`,
-              }}
+function ScheduleRow({
+  entry,
+  index,
+  tips,
+  briefing,
+}: {
+  entry: TimelineEntry;
+  index: number;
+  tips?: string[];
+  briefing?: BriefingEntry;
+}) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const badge = PRIORITY_BADGE[entry.priority] || PRIORITY_BADGE.medium;
+
+  const handleCopyImage = useCallback(() => {
+    if (rowRef.current) copyItemAsImage(rowRef.current);
+  }, []);
+
+  const handleDownloadImage = useCallback(() => {
+    if (rowRef.current) downloadItemAsImage(rowRef.current, `schedule-${index}`);
+  }, [index]);
+
+  return (
+    <div
+      ref={rowRef}
+      className="rounded-xl p-4 transition-all"
+      style={{
+        background: 'var(--color-surface)',
+        borderLeft: `4px solid ${badge.color}`,
+      }}
+    >
+      {/* Row 1: Number + Time + Title + Buttons */}
+      <div className="flex items-start gap-2">
+        {/* Number badge */}
+        <span
+          className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-bold text-white mt-0.5"
+          style={{ background: badge.color }}
+        >
+          {index}
+        </span>
+
+        <div className="flex-1 min-w-0">
+          {/* Time + Category */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[14px]">
+              {CATEGORY_EMOJI[entry.category] || '📌'}
+            </span>
+            <span
+              className="text-[14px] sm:text-[15px] font-mono font-semibold"
+              style={{ color: 'var(--color-accent)' }}
             >
-              {/* Header: Time + Title */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[15px]">
-                  {CATEGORY_EMOJI[entry.category] || '📌'}
-                </span>
-                <span
-                  className="text-[15px] font-mono font-semibold"
-                  style={{ color: 'var(--color-accent)' }}
-                >
-                  {entry.start}~{entry.end}
-                </span>
-                <span className="text-[18px] font-bold flex-1" style={{ color: 'var(--color-text)' }}>
-                  {entry.title}
-                </span>
-                <span className="text-[14px]">{badge.emoji}</span>
-              </div>
+              {entry.start}~{entry.end}
+            </span>
+            <span className="text-[13px]">{badge.emoji}</span>
+          </div>
 
-              {/* Tips - key action only */}
-              {tips && tips.length > 0 && (
-                <p className="text-[15px] mt-2 leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
-                  💡 {tips[0]}
+          {/* Title */}
+          <p className="text-[17px] sm:text-[18px] font-bold mt-1" style={{ color: 'var(--color-text)' }}>
+            {entry.title}
+          </p>
+
+          {/* Tips */}
+          {tips && tips.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {tips.map((tip, i) => (
+                <p key={i} className="text-[14px] sm:text-[15px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+                  💡 {tip}
+                </p>
+              ))}
+            </div>
+          )}
+
+          {/* Briefing */}
+          {briefing && (
+            <div className="mt-2 pt-2" style={{ borderTop: '1px dashed var(--color-border)' }}>
+              {briefing.tip && (
+                <p className="text-[14px] sm:text-[15px] font-medium" style={{ color: 'var(--color-accent)' }}>
+                  📋 {briefing.tip}
                 </p>
               )}
-
-              {/* Briefing prep - always visible, no accordion */}
-              {briefing && (
-                <div className="mt-2 pt-2" style={{ borderTop: '1px dashed var(--color-border)' }}>
-                  {briefing.tip && (
-                    <p className="text-[15px] font-medium" style={{ color: 'var(--color-accent)' }}>
-                      📋 {briefing.tip}
+              {briefing.prep.length > 0 && (
+                <div className="mt-1 space-y-0.5">
+                  {briefing.prep.map((p, i) => (
+                    <p key={i} className="text-[13px] sm:text-[14px]" style={{ color: 'var(--color-text-secondary)' }}>
+                      ✅ {p}
                     </p>
-                  )}
-                  {briefing.prep.length > 0 && (
-                    <div className="mt-1 space-y-0.5">
-                      {briefing.prep.map((p, i) => (
-                        <p key={i} className="text-[14px]" style={{ color: 'var(--color-text-secondary)' }}>
-                          ✅ {p}
-                        </p>
-                      ))}
-                    </div>
-                  )}
+                  ))}
                 </div>
               )}
             </div>
-          );
-        })}
+          )}
+        </div>
+
+        {/* Copy + Download buttons */}
+        <div className="flex flex-col gap-1 flex-shrink-0">
+          <button
+            onClick={handleCopyImage}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-[14px] transition-all hover:scale-110"
+            style={{ background: 'var(--color-accent-light)' }}
+            title="클립보드 이미지 복사"
+          >
+            📋
+          </button>
+          <button
+            onClick={handleDownloadImage}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-[14px] transition-all hover:scale-110"
+            style={{ background: 'var(--color-accent-light)' }}
+            title="이미지 저장"
+          >
+            📸
+          </button>
+        </div>
       </div>
     </div>
   );

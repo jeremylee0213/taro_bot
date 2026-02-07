@@ -1,11 +1,10 @@
 'use client';
 
-import { AdvisorComment, AdvisorTone } from '@/types/schedule';
+import { useCallback, useRef } from 'react';
+import { AdvisorComment } from '@/types/schedule';
 
 interface AdvisorPanelProps {
   advisors: AdvisorComment[];
-  tone: AdvisorTone;
-  onChangeTone: (tone: AdvisorTone) => void;
   onChangeAdvisors: () => void;
 }
 
@@ -15,7 +14,6 @@ const AVATAR_COLORS = [
   '#ff9500',
 ];
 
-// Map advisor names / styles to fitting emojis
 function getAdvisorEmoji(name: string): string {
   const lower = name.toLowerCase();
   const map: [string[], string][] = [
@@ -48,27 +46,53 @@ function getAdvisorEmoji(name: string): string {
   for (const [keywords, emoji] of map) {
     if (keywords.some(k => lower.includes(k))) return emoji;
   }
-  // Default emoji based on position
   return '💡';
 }
 
-const DEFAULT_EMOJIS = ['🥇', '🥈', '🥉'];
+async function copyItemAsImage(el: HTMLElement) {
+  try {
+    const { default: html2canvas } = await import('html2canvas');
+    const canvas = await html2canvas(el, { backgroundColor: '#ffffff', scale: 2, useCORS: true });
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      } catch {
+        const link = document.createElement('a');
+        link.download = 'advisor.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      }
+    }, 'image/png');
+  } catch { /* silent */ }
+}
+
+async function downloadItemAsImage(el: HTMLElement, name: string) {
+  try {
+    const { default: html2canvas } = await import('html2canvas');
+    const canvas = await html2canvas(el, { backgroundColor: '#ffffff', scale: 2, useCORS: true });
+    const link = document.createElement('a');
+    link.download = `${name}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  } catch { /* silent */ }
+}
 
 export function AdvisorPanel({
   advisors,
-  tone,
-  onChangeTone,
   onChangeAdvisors,
 }: AdvisorPanelProps) {
   if (advisors.length === 0) return null;
 
   return (
-    <div className="apple-card p-5 space-y-4 fade-in">
+    <div className="apple-card p-4 sm:p-6 space-y-4 fade-in">
       <div className="flex items-center justify-between">
-        <h3 className="text-[20px] font-bold" style={{ color: 'var(--color-text)' }}>💬 전문가 조언</h3>
+        <h3 className="text-[20px] sm:text-[22px] font-bold" style={{ color: 'var(--color-text)' }}>
+          💬 조언자 인사이트
+        </h3>
         <button
           onClick={onChangeAdvisors}
-          className="text-[16px] font-semibold px-3 py-1.5 rounded-xl"
+          className="text-[15px] font-semibold px-3 py-1.5 rounded-xl"
           style={{ color: 'var(--color-accent)', background: 'var(--color-accent-light)' }}
         >
           🔄 변경
@@ -76,41 +100,86 @@ export function AdvisorPanel({
       </div>
 
       <div className="space-y-4">
-        {advisors.map((advisor, idx) => {
-          const emoji = getAdvisorEmoji(advisor.name) || DEFAULT_EMOJIS[idx];
-          return (
-            <div key={idx} className="flex items-start gap-3">
-              <div
-                className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-[22px]"
-                style={{ backgroundColor: AVATAR_COLORS[idx % AVATAR_COLORS.length] + '20' }}
-              >
-                {emoji}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[17px] font-bold" style={{ color: 'var(--color-text)' }}>
-                  {emoji} {advisor.name}
-                </p>
-                <p className="text-[16px] mt-1 leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
-                  &ldquo;{advisor.comment}&rdquo;
-                </p>
-              </div>
-            </div>
-          );
-        })}
+        {advisors.map((advisor, idx) => (
+          <AdvisorRow key={idx} advisor={advisor} index={idx + 1} />
+        ))}
       </div>
+    </div>
+  );
+}
 
-      {/* Tone selector */}
-      <div className="flex items-center gap-3 pt-3" style={{ borderTop: '1px solid var(--color-border)' }}>
-        <span className="text-[15px] font-medium" style={{ color: 'var(--color-text-muted)' }}>🎯 톤</span>
-        <select
-          value={tone}
-          onChange={(e) => onChangeTone(e.target.value as AdvisorTone)}
-          className="text-[16px] px-3 py-2 rounded-xl"
-          style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
-        >
-          <option value="encouraging">🤝 격려</option>
-          <option value="direct">⚡ 직설</option>
-        </select>
+function AdvisorRow({ advisor, index }: { advisor: AdvisorComment; index: number }) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const emoji = getAdvisorEmoji(advisor.name);
+
+  const handleCopy = useCallback(() => {
+    if (rowRef.current) copyItemAsImage(rowRef.current);
+  }, []);
+
+  const handleDownload = useCallback(() => {
+    if (rowRef.current) downloadItemAsImage(rowRef.current, `advisor-${index}`);
+  }, [index]);
+
+  // Format comment with line breaks for readability
+  const formattedComment = advisor.comment
+    .replace(/([.!?])\s+/g, '$1\n\n')
+    .trim();
+
+  return (
+    <div
+      ref={rowRef}
+      className="rounded-xl p-4"
+      style={{
+        background: 'var(--color-surface)',
+        borderLeft: `4px solid ${AVATAR_COLORS[(index - 1) % AVATAR_COLORS.length]}`,
+      }}
+    >
+      <div className="flex items-start gap-3">
+        {/* Number + Emoji avatar */}
+        <div className="flex flex-col items-center gap-1 flex-shrink-0">
+          <div
+            className="w-11 h-11 rounded-full flex items-center justify-center text-[20px]"
+            style={{ backgroundColor: AVATAR_COLORS[(index - 1) % AVATAR_COLORS.length] + '20' }}
+          >
+            {emoji}
+          </div>
+          <span
+            className="text-[11px] font-bold px-1.5 py-0.5 rounded-full text-white"
+            style={{ background: AVATAR_COLORS[(index - 1) % AVATAR_COLORS.length] }}
+          >
+            #{index}
+          </span>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <p className="text-[17px] sm:text-[18px] font-bold mb-2" style={{ color: 'var(--color-text)' }}>
+            {emoji} {advisor.name}
+          </p>
+          <div className="text-[15px] sm:text-[16px] leading-[1.8] whitespace-pre-line" style={{ color: 'var(--color-text-secondary)' }}>
+            &ldquo;{formattedComment}&rdquo;
+          </div>
+        </div>
+
+        {/* Copy + Download */}
+        <div className="flex flex-col gap-1 flex-shrink-0">
+          <button
+            onClick={handleCopy}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-[14px] transition-all hover:scale-110"
+            style={{ background: 'var(--color-accent-light)' }}
+            title="클립보드 이미지 복사"
+          >
+            📋
+          </button>
+          <button
+            onClick={handleDownload}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-[14px] transition-all hover:scale-110"
+            style={{ background: 'var(--color-accent-light)' }}
+            title="이미지 저장"
+          >
+            📸
+          </button>
+        </div>
       </div>
     </div>
   );

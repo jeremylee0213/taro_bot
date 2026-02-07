@@ -184,18 +184,17 @@ export function QuickInput({ onAnalyze }: QuickInputProps) {
         </div>
       )}
 
-      <div className="flex gap-3 pt-1">
+      <div className="grid grid-cols-2 gap-3 pt-1">
         <button
           onClick={() => handleAnalyze(false)}
           disabled={displayItems.length === 0}
-          className="btn-primary flex-1 py-3 disabled:opacity-40"
+          className="btn-primary py-4 disabled:opacity-40 text-[17px]"
         >
-          🔍 AI 분석하기
+          💼 일하는 날
         </button>
         <button
           onClick={() => handleAnalyze(true)}
-          className="btn-secondary py-3 px-5"
-          style={{ fontSize: '16px' }}
+          className="btn-secondary py-4 text-[17px]"
         >
           🛋️ 쉬는 날
         </button>

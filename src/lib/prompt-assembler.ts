@@ -77,7 +77,7 @@ export function assemblePrompt(params: AssembleParams): { role: string; content:
 detail_mode: ${detailMode} (${modeLabel})
 프로필: ${formatProfile(profile)}
 컨디션: ${energyLevel}
-조언자: ${advisorNamesStr} (${advisorTone === 'encouraging' ? '격려' : '직설'})
+조언자: ${advisorNamesStr} (톤: 상황에 맞게 자동 조절 — 긴급하면 직설, 일상이면 격려)
 ${isRestDay ? '모드: 쉬는 날\n' : ''}
 일정:
 ${formatScheduleList(schedules)}
