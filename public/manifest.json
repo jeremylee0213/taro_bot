@@ -1,6 +1,6 @@
 {
-  "name": "Daily CEO Planner",
-  "short_name": "CEO Planner",
+  "name": "플랜Bot",
+  "short_name": "플랜Bot",
   "description": "하루 일정을 전략적으로 관리하세요",
   "start_url": "/taro_bot/",
   "scope": "/taro_bot/",

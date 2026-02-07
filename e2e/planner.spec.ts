@@ -1,12 +1,12 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Daily CEO Planner', () => {
+test.describe('플랜Bot', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
   });
 
   test('shows header and date', async ({ page }) => {
-    await expect(page.locator('h1')).toContainText('Daily CEO Planner');
+    await expect(page.locator('h1')).toContainText('플랜Bot');
     await expect(page.locator('header')).toBeVisible();
   });
 

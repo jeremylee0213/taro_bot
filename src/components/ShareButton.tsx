@@ -8,7 +8,7 @@ interface ShareButtonProps {
 }
 
 function formatResultText(result: AnalysisResult): string {
-  const lines: string[] = ['📋 Daily CEO Planner\n'];
+  const lines: string[] = ['🤖 플랜Bot\n'];
 
   if (result.overall_tip) {
     lines.push(`💡 ${result.overall_tip}\n`);
