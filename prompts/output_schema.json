@@ -1,0 +1,173 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DailyTarotMirror_Output",
+  "description": "Daily Tarot Mirror V2 - 구조화된 출력 스키마. Quick/Standard/Full 모드별 필드 정의.",
+
+  "type": "object",
+  "required": ["mode", "card", "one_liner", "keywords"],
+  "properties": {
+    "mode": {
+      "type": "string",
+      "enum": ["quick", "standard", "full"],
+      "description": "응답 모드"
+    },
+
+    "card": {
+      "type": "object",
+      "required": ["name_kr", "name_en", "number", "reversed", "emoji_art", "core_keywords"],
+      "properties": {
+        "name_kr": { "type": "string", "description": "카드 한글명 (예: 별)" },
+        "name_en": { "type": "string", "description": "카드 영문명 (예: The Star)" },
+        "number": { "type": "integer", "minimum": 0, "maximum": 21, "description": "메이저 아르카나 번호" },
+        "reversed": { "type": "boolean", "description": "역방향 여부" },
+        "emoji_art": { "type": "string", "description": "이모지 조합 시각화 (예: ⭐✨🌊)" },
+        "core_keywords": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 3,
+          "maxItems": 3,
+          "description": "핵심 키워드 3개"
+        }
+      }
+    },
+
+    "one_liner": {
+      "type": "string",
+      "description": "오늘의 한줄 핵심 조언"
+    },
+
+    "keywords": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 3,
+      "maxItems": 5,
+      "description": "해시태그 키워드"
+    },
+
+    "guide": {
+      "type": "object",
+      "description": "[Standard/Full] 적응형 가이드 - 입력 유형에 따라 형식 변환",
+      "required": ["type", "content"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["timeline", "perspectives", "emotion_journey", "pros_cons"],
+          "description": "가이드 형식 유형"
+        },
+        "title": { "type": "string", "description": "가이드 섹션 제목" },
+        "content": {
+          "oneOf": [
+            {
+              "type": "array",
+              "description": "timeline: 시간대별 조언",
+              "items": {
+                "type": "object",
+                "required": ["period", "icon", "advice"],
+                "properties": {
+                  "period": { "type": "string", "description": "시간대 또는 이벤트명" },
+                  "time": { "type": "string", "description": "구체적 시간 (선택)" },
+                  "icon": { "type": "string", "description": "이모지 아이콘" },
+                  "advice": { "type": "string", "description": "조언 내용" },
+                  "energy": { "type": "string", "enum": ["high", "medium", "rest"], "description": "에너지 레벨" },
+                  "is_family_time": { "type": "boolean", "description": "가족 시간 여부 - true이면 부드러운 톤 적용" }
+                }
+              }
+            },
+            {
+              "type": "array",
+              "description": "perspectives: 관점 분기형",
+              "items": {
+                "type": "object",
+                "required": ["label", "viewpoint"],
+                "properties": {
+                  "label": { "type": "string", "description": "관점 라벨 (A/B/C)" },
+                  "viewpoint": { "type": "string", "description": "관점 설명" }
+                }
+              }
+            },
+            {
+              "type": "object",
+              "description": "emotion_journey: 감정 여정",
+              "required": ["current", "transition", "evening"],
+              "properties": {
+                "current": { "type": "string", "description": "현재 감정 인식" },
+                "transition": { "type": "string", "description": "카드가 제안하는 전환" },
+                "evening": { "type": "string", "description": "저녁 마무리 제안" }
+              }
+            },
+            {
+              "type": "array",
+              "description": "pros_cons: 프로/콘 비교",
+              "items": {
+                "type": "object",
+                "required": ["option", "pros", "cons"],
+                "properties": {
+                  "option": { "type": "string" },
+                  "pros": { "type": "array", "items": { "type": "string" } },
+                  "cons": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+
+    "roundtable": {
+      "type": "array",
+      "description": "[Standard/Full] 리더십 라운드테이블",
+      "items": {
+        "type": "object",
+        "required": ["persona", "archetype", "emoji", "quote", "key_point"],
+        "properties": {
+          "persona": { "type": "string", "description": "페르소나 이름" },
+          "archetype": { "type": "string", "description": "아키타입 설명" },
+          "emoji": { "type": "string", "description": "페르소나 이모지" },
+          "quote": { "type": "string", "description": "발화 내용" },
+          "key_point": { "type": "string", "description": "핵심 1줄 요약" },
+          "relation_to_prev": {
+            "type": "string",
+            "enum": ["agree", "counter", "extend", "independent"],
+            "description": "[Full] 이전 발화와의 관계"
+          }
+        }
+      }
+    },
+
+    "compass": {
+      "type": "object",
+      "description": "[Standard/Full] 캡틴K의 나침반",
+      "required": ["insight", "question"],
+      "properties": {
+        "insight": { "type": "string", "description": "통찰 1문장" },
+        "question": { "type": "string", "description": "열린 질문 1개" }
+      }
+    },
+
+    "card_deep_reading": {
+      "type": "object",
+      "description": "[Full] 카드 심화 해석",
+      "properties": {
+        "upright": { "type": "string", "description": "정방향 해석" },
+        "reversed": { "type": "string", "description": "역방향 해석" },
+        "contextual": { "type": "string", "description": "오늘 상황 맥락 해석" }
+      }
+    },
+
+    "image_prompt": {
+      "type": "string",
+      "description": "[Full] DALL-E용 이미지 생성 프롬프트 (Retro Pixel Art style)"
+    },
+
+    "meta": {
+      "type": "object",
+      "description": "내부 메타데이터 (사용자에게 비표시)",
+      "properties": {
+        "card_selection_reason": { "type": "string", "description": "카드 선택 근거 1문장" },
+        "emotional_level": { "type": "integer", "minimum": 1, "maximum": 3, "description": "감지된 정서 레벨" },
+        "input_type": { "type": "string", "enum": ["schedule", "concern", "emotion", "decision", "greeting"], "description": "입력 유형 분류" },
+        "dependency_alert": { "type": "boolean", "description": "의존성 방지 메시지 트리거 여부" }
+      }
+    }
+  }
+}
