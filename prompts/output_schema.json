@@ -1,6 +1,6 @@
 {
   "type": "object",
-  "required": ["timeline", "schedule_tips", "advisors", "overall_tip", "neuro_tips", "daily_neuro_summary"],
+  "required": ["timeline", "schedule_tips", "advisors", "overall_tip", "neuro_tips", "daily_neuro_summary", "specialist_advice"],
   "properties": {
     "timeline": {
       "type": "array",
@@ -59,7 +59,7 @@
     "daily_neuro_summary": { "type": "string" },
     "energy_chart": {
       "type": "array",
-      "description": "medium/long 모드에서만 제공",
+      "description": "long 모드에서만 제공",
       "items": {
         "type": "object",
         "required": ["hour", "level", "label"],
@@ -72,7 +72,7 @@
     },
     "briefings": {
       "type": "array",
-      "description": "medium/long 모드에서만 제공",
+      "description": "long 모드에서만 제공",
       "items": {
         "type": "object",
         "required": ["id", "title", "tip", "prep"],
@@ -81,6 +81,21 @@
           "title": { "type": "string" },
           "tip": { "type": "string" },
           "prep": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "specialist_advice": {
+      "type": "array",
+      "description": "5명 전문가 조언 (항상 제공)",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "required": ["emoji", "role", "advice"],
+        "properties": {
+          "emoji": { "type": "string" },
+          "role": { "type": "string" },
+          "advice": { "type": "string" }
         }
       }
     }

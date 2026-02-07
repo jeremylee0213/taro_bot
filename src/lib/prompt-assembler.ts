@@ -44,27 +44,45 @@ export interface AssembleParams {
   profile: UserProfile;
   detailMode: DetailMode;
   isRestDay?: boolean;
+  customAdvisorNames?: string[];
 }
 
 export function assemblePrompt(params: AssembleParams): { role: string; content: string }[] {
-  const { schedules, energyLevel, advisors, advisorTone, profile, detailMode, isRestDay } = params;
+  const { schedules, energyLevel, advisors, advisorTone, profile, detailMode, isRestDay, customAdvisorNames } = params;
 
   const systemContent = getSystemPromptBase();
-  const advisorNames = advisors.map((a) => `${a.name} (${a.initials})`).join(', ');
 
-  const modeLabel = { short: '짧게', medium: '중간', long: '길게' }[detailMode];
+  // Build advisor name list: pool advisors + custom names
+  const poolAdvisorNames = advisors.map((a) => `${a.name} (${a.initials})`);
+  const allAdvisorNames = [...poolAdvisorNames, ...(customAdvisorNames || [])].slice(0, 3);
+  const advisorNamesStr = allAdvisorNames.join(', ');
+
+  const modeLabel = { short: '짧게 (일반)', medium: '중간', long: '길게 (상세)' }[detailMode];
+
+  const specialistInstruction = detailMode === 'long'
+    ? `\n\n**전문가 인사이트 (specialist_advice)**: 반드시 다음 5명의 전문가 관점에서 조언을 추가하세요:
+1. 🧠 시니어 심리상담가 — 감정 관리, 스트레스 대처
+2. 🚗 운전/이동 전문가 — 이동 동선, 안전 운전 팁
+3. 💻 개발자/생산성 전문가 — 업무 효율, 집중력
+4. 🙏 종교인/영성 전문가 — 마음 챙김, 감사, 내적 평화
+5. 🥗 영양사 — 식사 타이밍, 영양, 에너지 관리
+
+각 전문가는 emoji, role, advice 필드를 포함합니다. advice는 오늘 일정에 맞는 구체적 조언 2~3문장.`
+    : `\n\n**전문가 인사이트 (specialist_advice)**: 다음 5명의 전문가 관점에서 핵심 한줄 조언을 추가하세요:
+1. 🧠 심리상담가 2. 🚗 운전전문가 3. 💻 생산성전문가 4. 🙏 영성전문가 5. 🥗 영양사
+각 전문가는 emoji, role, advice(핵심 1문장) 필드를 포함합니다.`;
 
   const userContent = `## 분석 요청
 
 detail_mode: ${detailMode} (${modeLabel})
 프로필: ${formatProfile(profile)}
 컨디션: ${energyLevel}
-조언자: ${advisorNames} (${advisorTone === 'encouraging' ? '격려' : '직설'})
+조언자: ${advisorNamesStr} (${advisorTone === 'encouraging' ? '격려' : '직설'})
 ${isRestDay ? '모드: 쉬는 날\n' : ''}
 일정:
 ${formatScheduleList(schedules)}
 
-**지시**: detail_mode="${detailMode}" 규칙을 정확히 따르세요.${detailMode !== 'short' ? ' energy_chart와 briefings를 반드시 포함하세요.' : ''}`;
+**지시**: detail_mode="${detailMode}" 규칙을 정확히 따르세요.${detailMode !== 'short' ? ' energy_chart와 briefings를 반드시 포함하세요.' : ''}${specialistInstruction}`;
 
   return [
     { role: 'system', content: systemContent },

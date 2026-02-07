@@ -1,4 +1,4 @@
-import { AnalysisResult, Priority, Category, TimelineEntry, ScheduleTip, AdvisorComment, NeuroSuggestion, EnergyBlock, BriefingEntry } from '@/types/schedule';
+import { AnalysisResult, Priority, Category, TimelineEntry, ScheduleTip, AdvisorComment, NeuroSuggestion, EnergyBlock, BriefingEntry, SpecialistAdvice } from '@/types/schedule';
 
 export function parseResponse(raw: string): AnalysisResult {
   try {
@@ -88,6 +88,15 @@ function normalizeResult(data: any): AnalysisResult {
       }))
     : undefined;
 
+  const specialist_advice: SpecialistAdvice[] | undefined = Array.isArray(data.specialist_advice)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ? data.specialist_advice.map((s: any): SpecialistAdvice => ({
+        emoji: (s.emoji as string) || '💡',
+        role: (s.role as string) || '',
+        advice: (s.advice as string) || '',
+      }))
+    : undefined;
+
   return {
     timeline,
     schedule_tips,
@@ -97,6 +106,7 @@ function normalizeResult(data: any): AnalysisResult {
     daily_neuro_summary: (data.daily_neuro_summary as string) || '',
     energy_chart,
     briefings,
+    specialist_advice,
   };
 }
 

@@ -5,24 +5,16 @@
 
 ## 상세도 모드 (detail_mode)
 
-### short (짧게)
-- overall_tip: 1문장 (20자)
-- schedule_tips: 필요한 것만, 각 10자
-- advisors: 각 1문장 (25자)
+### short (일반)
+- overall_tip: 1~2문장 핵심 전략
+- schedule_tips: 필요한 것만, 각 15자
+- advisors: 각 1~2문장 (30자)
 - neuro_tips: 2개, 각 한 줄
-- daily_neuro_summary: 15자
+- daily_neuro_summary: 20자
 - energy_chart, briefings: 생략
+- specialist_advice: 5명 전문가 각 핵심 1문장
 
-### medium (중간)
-- overall_tip: 2~3문장
-- schedule_tips: 주요 일정에 2개씩
-- advisors: 각 2~3문장, 구체적 조언
-- neuro_tips: 3개, 이유 포함
-- daily_neuro_summary: 2~3문장
-- energy_chart: 시간별 에너지 예측 (1~10) — 약물, 식사, 활동 반영
-- briefings: 중요 일정에만 제공 (tip + prep 1~2개)
-
-### long (길게)
+### long (상세)
 - overall_tip: 전략적 분석 3~5문장
 - schedule_tips: 모든 일정에 준비물/꿀팁/리마인드
 - advisors: 각 3~5문장, 심층 조언 + 구체적 액션
@@ -30,6 +22,21 @@
 - daily_neuro_summary: 종합 뇌과학 분석 5~7문장
 - energy_chart: 시간별 에너지 예측 + 상세 라벨
 - briefings: 모든 일정에 대해 제공 (tip + prep 2~3개)
+- specialist_advice: 5명 전문가 각 2~3문장 구체적 조언
+
+## 조언자 (advisors) 규칙
+- 사용자가 지정한 조언자 이름으로 조언 생성
+- 해당 인물의 실제 철학/스타일을 반영하여 조언
+- initials는 이름의 영문 이니셜 (없으면 한글 초성)
+- 조언자가 실존 인물이 아니어도 해당 캐릭터에 맞는 조언 생성
+
+## specialist_advice 규칙
+5명의 전문가 관점에서 오늘 일정에 맞는 구체적 조언:
+1. emoji: "🧠", role: "심리상담가" — 감정 관리, 스트레스 대처
+2. emoji: "🚗", role: "운전전문가" — 이동 동선, 안전, 피로 관리
+3. emoji: "💻", role: "생산성전문가" — 업무 효율, 집중력, 도구 활용
+4. emoji: "🙏", role: "영성전문가" — 마음 챙김, 감사, 내적 평화
+5. emoji: "🥗", role: "영양사" — 식사 타이밍, 영양, 에너지 관리
 
 ## energy_chart 규칙
 - hour: 7~22 중 활동 시간대

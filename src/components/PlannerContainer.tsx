@@ -24,12 +24,12 @@ import { DateHeader } from './DateHeader';
 import { QuickInput } from './QuickInput';
 import { AnalysisSkeleton } from './AnalysisSkeleton';
 import { ScheduleTable } from './ScheduleTable';
-import { EnergyChart } from './EnergyChart';
 import { ConcertaChart } from './ConcertaChart';
 import { AdvisorPanel } from './AdvisorPanel';
 import { AdvisorSettings } from './AdvisorSettings';
 import { ShareButton } from './ShareButton';
 import { SettingsModal } from './SettingsModal';
+import { SavedHistoryPanel, saveAdvice } from './SavedHistoryPanel';
 
 const DEFAULT_PROFILE: UserProfile = {
   traits: ['조용한 ADHD', 'HSP'],
@@ -64,9 +64,9 @@ const ALL_ADVISORS: Advisor[] = [
 const DEFAULT_ADVISOR_IDS = ['em', 'wb', 'sn'];
 
 const MODE_LABELS: Record<DetailMode, string> = {
-  short: '⚡ 짧게',
-  medium: '📊 중간',
-  long: '📖 길게',
+  short: '📌 일반',
+  medium: '📖 상세',
+  long: '📖 상세',
 };
 
 export function PlannerContainer() {
@@ -76,9 +76,10 @@ export function PlannerContainer() {
   const [apiKey, setApiKey] = useLocalStorage('ceo-planner-apikey', '');
   const [model, setModel] = useLocalStorage('ceo-planner-model', 'gpt-4o');
   const [selectedAdvisorIds, setSelectedAdvisorIds] = useLocalStorage<string[]>('ceo-planner-advisors', DEFAULT_ADVISOR_IDS);
+  const [customAdvisorNames, setCustomAdvisorNames] = useLocalStorage<string[]>('ceo-planner-custom-advisors', []);
   const [advisorTone, setAdvisorTone] = useLocalStorage<AdvisorTone>('ceo-planner-tone', 'encouraging');
   const [profile, setProfile] = useLocalStorage<UserProfile>('ceo-planner-profile', DEFAULT_PROFILE);
-  const [detailMode, setDetailMode] = useLocalStorage<DetailMode>('ceo-planner-detail-mode', 'medium');
+  const [detailMode, setDetailMode] = useLocalStorage<DetailMode>('ceo-planner-detail-mode', 'short');
 
   const {
     energyLevel, isLoaded,
@@ -91,16 +92,18 @@ export function PlannerContainer() {
   const [progress, setProgress] = useState<AnalysisProgress>({ step: 0, total: 3, label: '' });
   const [error, setError] = useState<string | null>(null);
   const [streamText, setStreamText] = useState('');
+  const [savedMsg, setSavedMsg] = useState('');
 
   const [showSettings, setShowSettings] = useState(false);
   const [showAdvisorSettings, setShowAdvisorSettings] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   const lastSchedulesRef = useRef<ScheduleItem[]>([]);
+  const resultRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef(0);
 
   const { setCache } = useAnalysisCache();
 
-  // ─── Streaming Analysis ───
   const runAnalysis = useCallback(
     async (items: ScheduleItem[], advisorIds?: string[]) => {
       if (!apiKey) { setShowSettings(true); return; }
@@ -125,8 +128,9 @@ export function PlannerContainer() {
           advisors: advisorsToUse,
           advisorTone,
           profile,
-          detailMode,
+          detailMode: detailMode === 'short' ? 'short' : 'long',
           isRestDay: restMode,
+          customAdvisorNames,
         });
 
         setProgress({ step: 2, total: 3, label: '🤖 AI 분석 중...' });
@@ -137,7 +141,7 @@ export function PlannerContainer() {
           'o1', 'o1-mini', 'o3', 'o3-mini', 'o4-mini',
         ].some((m) => model.startsWith(m));
 
-        const maxTokens = detailMode === 'long' ? 8192 : detailMode === 'medium' ? 6144 : 4096;
+        const maxTokens = detailMode === 'short' ? 4096 : 8192;
         const isReasoningModel = ['o1', 'o3'].some((m) => model.startsWith(m));
 
         if (isReasoningModel) {
@@ -189,22 +193,94 @@ export function PlannerContainer() {
         setStreamText('');
       }
     },
-    [apiKey, model, energyLevel, selectedAdvisorIds, advisorTone, profile, detailMode, setCache, updateCompletedCount, updateSchedules]
+    [apiKey, model, energyLevel, selectedAdvisorIds, customAdvisorNames, advisorTone, profile, detailMode, setCache, updateCompletedCount, updateSchedules]
   );
 
-  // ─── Advisor change → re-generation ───
   const handleAdvisorChange = useCallback(
-    (newIds: string[]) => {
+    (newIds: string[], newCustomNames?: string[]) => {
       setSelectedAdvisorIds(newIds);
+      if (newCustomNames) setCustomAdvisorNames(newCustomNames);
       setShowAdvisorSettings(false);
       if (lastSchedulesRef.current.length > 0) {
         runAnalysis(lastSchedulesRef.current, newIds);
       }
     },
-    [setSelectedAdvisorIds, runAnalysis]
+    [setSelectedAdvisorIds, setCustomAdvisorNames, runAnalysis]
   );
 
-  // ─── Swipe gesture for date change ───
+  const handleSaveAdvice = useCallback(() => {
+    if (!analysisResult) return;
+    saveAdvice({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      date,
+      overallTip: analysisResult.overall_tip || '',
+      advisors: analysisResult.advisors.map(a => ({ name: a.name, comment: a.comment })),
+      neuroSummary: analysisResult.daily_neuro_summary,
+      timestamp: Date.now(),
+    });
+    setSavedMsg('✅ 저장됨!');
+    setTimeout(() => setSavedMsg(''), 2000);
+  }, [analysisResult, date]);
+
+  const handleCopyAll = useCallback(async () => {
+    if (!analysisResult) return;
+    const lines = [
+      `📅 ${date} Daily CEO Planner`,
+      '',
+      `💡 ${analysisResult.overall_tip}`,
+      '',
+      '📅 일정:',
+      ...analysisResult.timeline.map(t => `  ${t.start}~${t.end} ${t.title}`),
+      '',
+      '💬 조언:',
+      ...analysisResult.advisors.map(a => `  ${a.name}: "${a.comment}"`),
+      '',
+      analysisResult.daily_neuro_summary ? `🧠 ${analysisResult.daily_neuro_summary}` : '',
+    ].join('\n');
+    try { await navigator.clipboard.writeText(lines); } catch {}
+    setSavedMsg('📋 복사됨!');
+    setTimeout(() => setSavedMsg(''), 2000);
+  }, [analysisResult, date]);
+
+  const handleSaveImage = useCallback(async () => {
+    if (!resultRef.current) return;
+    try {
+      const { default: html2canvas } = await import('html2canvas');
+      const canvas = await html2canvas(resultRef.current, {
+        backgroundColor: null,
+        scale: 2,
+        useCORS: true,
+      });
+      const link = document.createElement('a');
+      link.download = `ceo-planner-${date}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch {
+      setSavedMsg('❌ 이미지 저장 실패');
+      setTimeout(() => setSavedMsg(''), 2000);
+    }
+  }, [date]);
+
+  const handleSaveSummaryImage = useCallback(async () => {
+    const summaryEl = document.getElementById('summary-card');
+    if (!summaryEl) return;
+    try {
+      const { default: html2canvas } = await import('html2canvas');
+      const canvas = await html2canvas(summaryEl, {
+        backgroundColor: null,
+        scale: 2,
+        useCORS: true,
+      });
+      const link = document.createElement('a');
+      link.download = `ceo-summary-${date}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch {
+      setSavedMsg('❌ 이미지 저장 실패');
+      setTimeout(() => setSavedMsg(''), 2000);
+    }
+  }, [date]);
+
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
   }, []);
@@ -214,12 +290,10 @@ export function PlannerContainer() {
     if (Math.abs(diff) > 80) {
       const d = new Date(date);
       d.setDate(d.getDate() + (diff > 0 ? -1 : 1));
-      const newDate = d.toISOString().split('T')[0];
-      setDate(newDate);
+      setDate(d.toISOString().split('T')[0]);
     }
   }, [date]);
 
-  const hasEnergy = analysisResult?.energy_chart && analysisResult.energy_chart.length > 0;
   const hasConcerta = profile.concertaDoses && profile.concertaDoses.length > 0;
 
   if (!isLoaded) return <div className="min-h-screen" style={{ background: 'var(--color-bg)' }} />;
@@ -247,37 +321,42 @@ export function PlannerContainer() {
           <>
             <div className="apple-card p-5">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-[17px] font-bold" style={{ color: 'var(--color-text)' }}>
-                  📊 분석 모드
-                </span>
+                <span className="text-[17px] font-bold" style={{ color: 'var(--color-text)' }}>📊 분석 모드</span>
+                <button
+                  onClick={() => setShowHistory(true)}
+                  className="text-[14px] font-semibold px-3 py-1.5 rounded-xl"
+                  style={{ color: 'var(--color-accent)', background: 'var(--color-accent-light)' }}
+                >
+                  📚 기록
+                </button>
               </div>
-              <div className="flex gap-2">
-                {(['short', 'medium', 'long'] as DetailMode[]).map((mode) => (
+              <div className="flex gap-3">
+                {(['short', 'medium'] as DetailMode[]).map((mode) => (
                   <button
                     key={mode}
                     onClick={() => setDetailMode(mode)}
-                    className="flex-1 py-3 rounded-xl text-[16px] font-bold transition-all"
+                    className="flex-1 py-3.5 rounded-xl text-[17px] font-bold transition-all"
                     style={{
-                      background: detailMode === mode ? 'var(--color-accent)' : 'var(--color-surface)',
-                      color: detailMode === mode ? '#fff' : 'var(--color-text-secondary)',
-                      border: detailMode === mode ? 'none' : '1px solid var(--color-border)',
+                      background: (mode === 'short' ? detailMode === 'short' : detailMode !== 'short') ? 'var(--color-accent)' : 'var(--color-surface)',
+                      color: (mode === 'short' ? detailMode === 'short' : detailMode !== 'short') ? '#fff' : 'var(--color-text-secondary)',
+                      border: (mode === 'short' ? detailMode === 'short' : detailMode !== 'short') ? 'none' : '1px solid var(--color-border)',
                     }}
                   >
-                    {MODE_LABELS[mode]}
+                    {mode === 'short' ? '📌 일반' : '📖 상세'}
                   </button>
                 ))}
               </div>
               <p className="text-[14px] mt-2" style={{ color: 'var(--color-text-muted)' }}>
-                {detailMode === 'short' && '⚡ 핵심만 간결하게'}
-                {detailMode === 'medium' && '📊 에너지 차트 + 주요 브리핑 포함'}
-                {detailMode === 'long' && '📖 전체 브리핑 + 에너지 차트 + 상세 분석'}
+                {detailMode === 'short'
+                  ? '⚡ 핵심 조언만 간결하게'
+                  : '📖 전문가별 상세 조언 + 에너지 차트 + 브리핑'}
               </p>
             </div>
             <QuickInput onAnalyze={runAnalysis} />
           </>
         )}
 
-        {/* ─── RESULT VIEW (Single page scroll) ─── */}
+        {/* ─── RESULT VIEW ─── */}
         {view === 'result' && (
           <>
             <div className="flex items-center justify-between">
@@ -288,22 +367,17 @@ export function PlannerContainer() {
               >
                 ← 돌아가기
               </button>
-              <div className="flex items-center gap-3">
-                <span
-                  className="text-[14px] px-3 py-1.5 rounded-full font-semibold"
-                  style={{ background: 'var(--color-accent-light)', color: 'var(--color-accent)' }}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowHistory(true)}
+                  className="text-[14px] font-semibold px-2.5 py-1.5 rounded-xl"
+                  style={{ color: 'var(--color-accent)', background: 'var(--color-accent-light)' }}
                 >
-                  {MODE_LABELS[detailMode]}
-                </span>
+                  📚
+                </button>
                 {analysisResult && <ShareButton result={analysisResult} />}
               </div>
             </div>
-
-            {!isAnalyzing && (
-              <p className="text-center text-[13px]" style={{ color: 'var(--color-text-muted)' }}>
-                👆 스와이프로 날짜 이동
-              </p>
-            )}
 
             {isAnalyzing && <AnalysisSkeleton progress={progress} streamText={streamText || undefined} />}
 
@@ -316,34 +390,37 @@ export function PlannerContainer() {
               </div>
             )}
 
-            {/* ─── ALL SECTIONS on single page ─── */}
             {analysisResult && !isAnalyzing && (
-              <div className="space-y-5 fade-in">
-                {/* 1. Overall tip */}
+              <div ref={resultRef} className="space-y-5 fade-in">
+
+                {/* ─── 1. OVERALL TIP — enhanced visual ─── */}
                 {analysisResult.overall_tip && (
-                  <div className="apple-card p-5" style={{ borderLeft: '4px solid var(--color-accent)' }}>
-                    <p className="text-[18px] font-bold leading-relaxed" style={{ color: 'var(--color-text)' }}>
-                      💡 {analysisResult.overall_tip}
+                  <div className="apple-card p-6" style={{ borderLeft: '5px solid var(--color-accent)', background: 'linear-gradient(135deg, var(--color-accent-light), var(--color-card))' }}>
+                    <p className="text-[13px] font-bold mb-2" style={{ color: 'var(--color-accent)' }}>
+                      💡 오늘의 핵심
+                    </p>
+                    <p className="text-[20px] font-bold leading-relaxed" style={{ color: 'var(--color-text)', lineHeight: '1.6' }}>
+                      {analysisResult.overall_tip}
                     </p>
                   </div>
                 )}
 
-                {/* 2. Schedule Table (Timeline + Tips + Briefings merged) */}
+                {/* ─── 2. Schedule Table ─── */}
                 <ScheduleTable
                   timeline={analysisResult.timeline}
                   scheduleTips={analysisResult.schedule_tips}
                   briefings={analysisResult.briefings}
                 />
 
-                {/* 3. Concerta Concentration Curve */}
+                {/* ─── 3. Concerta + Energy combined chart ─── */}
                 {hasConcerta && (
-                  <ConcertaChart doses={profile.concertaDoses!} />
+                  <ConcertaChart
+                    doses={profile.concertaDoses!}
+                    energyData={analysisResult.energy_chart}
+                  />
                 )}
 
-                {/* 4. Energy Chart */}
-                {hasEnergy && <EnergyChart data={analysisResult.energy_chart!} />}
-
-                {/* 5. Advisor Panel */}
+                {/* ─── 4. Expert Advisors ─── */}
                 <AdvisorPanel
                   advisors={analysisResult.advisors}
                   tone={advisorTone}
@@ -351,7 +428,28 @@ export function PlannerContainer() {
                   onChangeAdvisors={() => setShowAdvisorSettings(true)}
                 />
 
-                {/* 6. Neuro Summary */}
+                {/* ─── 5. Expert Specialists (상세 mode — from AI) ─── */}
+                {analysisResult.specialist_advice && analysisResult.specialist_advice.length > 0 && (
+                  <div className="apple-card p-5 fade-in">
+                    <h3 className="text-[20px] font-bold mb-4" style={{ color: 'var(--color-text)' }}>
+                      🏥 전문가 인사이트
+                    </h3>
+                    <div className="space-y-3">
+                      {analysisResult.specialist_advice.map((spec, i) => (
+                        <div key={i} className="rounded-xl p-4" style={{ background: 'var(--color-surface)', borderLeft: `4px solid var(--color-accent)` }}>
+                          <p className="text-[16px] font-bold mb-1" style={{ color: 'var(--color-text)' }}>
+                            {spec.emoji} {spec.role}
+                          </p>
+                          <p className="text-[15px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+                            {spec.advice}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ─── 6. Neuro ─── */}
                 {analysisResult.daily_neuro_summary && (
                   <div className="apple-card p-5 fade-in" style={{ borderLeft: '4px solid var(--color-neuro)' }}>
                     <h3 className="text-[20px] font-bold mb-3" style={{ color: 'var(--color-text)' }}>
@@ -371,6 +469,62 @@ export function PlannerContainer() {
                     )}
                   </div>
                 )}
+
+                {/* ─── Action buttons: Save / Copy / Image ─── */}
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={handleSaveAdvice} className="flex-1 py-3 rounded-xl text-[15px] font-bold"
+                    style={{ background: 'var(--color-accent)', color: '#fff' }}>
+                    💾 저장
+                  </button>
+                  <button onClick={handleCopyAll} className="flex-1 py-3 rounded-xl text-[15px] font-bold"
+                    style={{ background: 'var(--color-surface)', color: 'var(--color-accent)', border: '1.5px solid var(--color-accent)' }}>
+                    📋 복사
+                  </button>
+                  <button onClick={handleSaveImage} className="flex-1 py-3 rounded-xl text-[15px] font-bold"
+                    style={{ background: 'var(--color-surface)', color: 'var(--color-text-secondary)', border: '1.5px solid var(--color-border)' }}>
+                    📸 전체 이미지
+                  </button>
+                </div>
+                {savedMsg && (
+                  <p className="text-center text-[15px] font-semibold fade-in" style={{ color: 'var(--color-success)' }}>
+                    {savedMsg}
+                  </p>
+                )}
+
+                {/* ─── 7. Summary Card (for image export) ─── */}
+                <div id="summary-card" className="apple-card p-6 fade-in" style={{ background: 'linear-gradient(135deg, var(--color-card), var(--color-accent-light))' }}>
+                  <p className="text-[13px] font-bold mb-1" style={{ color: 'var(--color-accent)' }}>📅 {date}</p>
+                  <p className="text-[20px] font-bold mb-4 leading-relaxed" style={{ color: 'var(--color-text)' }}>
+                    💡 {analysisResult.overall_tip}
+                  </p>
+
+                  {/* Mini schedule */}
+                  <div className="space-y-1 mb-4">
+                    {analysisResult.timeline.slice(0, 6).map((t) => (
+                      <p key={t.id} className="text-[14px]" style={{ color: 'var(--color-text-secondary)' }}>
+                        🕐 {t.start}~{t.end} <strong>{t.title}</strong>
+                      </p>
+                    ))}
+                  </div>
+
+                  {/* Top 3 advisor quotes */}
+                  <div className="space-y-2">
+                    {analysisResult.advisors.slice(0, 3).map((a, i) => (
+                      <p key={i} className="text-[14px]" style={{ color: 'var(--color-text-secondary)' }}>
+                        💬 <strong>{a.name}</strong>: {a.comment.length > 50 ? a.comment.slice(0, 50) + '...' : a.comment}
+                      </p>
+                    ))}
+                  </div>
+
+                  <p className="text-[11px] mt-4 text-right" style={{ color: 'var(--color-text-muted)' }}>
+                    Daily CEO Planner
+                  </p>
+                </div>
+
+                <button onClick={handleSaveSummaryImage} className="w-full py-3 rounded-xl text-[16px] font-bold"
+                  style={{ background: 'var(--color-accent)', color: '#fff' }}>
+                  📸 핵심 카드 이미지 저장
+                </button>
               </div>
             )}
           </>
@@ -393,6 +547,10 @@ export function PlannerContainer() {
         allAdvisors={ALL_ADVISORS}
         selectedIds={selectedAdvisorIds}
         onSave={handleAdvisorChange}
+      />
+      <SavedHistoryPanel
+        isOpen={showHistory}
+        onClose={() => setShowHistory(false)}
       />
     </div>
   );

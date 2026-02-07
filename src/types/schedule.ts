@@ -92,6 +92,12 @@ export interface BriefingEntry {
   prep: string[];
 }
 
+export interface SpecialistAdvice {
+  emoji: string;
+  role: string;
+  advice: string;
+}
+
 export interface AnalysisResult {
   timeline: TimelineEntry[];
   schedule_tips: ScheduleTip[];
@@ -101,6 +107,7 @@ export interface AnalysisResult {
   daily_neuro_summary: string;
   energy_chart?: EnergyBlock[];
   briefings?: BriefingEntry[];
+  specialist_advice?: SpecialistAdvice[];
 }
 
 // ─── App State Types ───
