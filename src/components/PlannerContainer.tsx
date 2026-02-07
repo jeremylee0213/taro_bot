@@ -10,7 +10,6 @@ import {
   UserProfile,
   ScheduleItem,
   DetailMode,
-  Category,
 } from '@/types/schedule';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useTheme } from '@/hooks/useTheme';
@@ -24,7 +23,7 @@ import { createOpenAI } from '@/lib/openai';
 import { DateHeader } from './DateHeader';
 import { QuickInput } from './QuickInput';
 import { AnalysisSkeleton } from './AnalysisSkeleton';
-import { BlockCalendar } from './BlockCalendar';
+import { ScheduleTable } from './ScheduleTable';
 import { EnergyChart } from './EnergyChart';
 import { BriefingList } from './BriefingList';
 import { AdvisorPanel } from './AdvisorPanel';
@@ -66,23 +65,6 @@ const MODE_LABELS: Record<DetailMode, string> = {
   long: '길게',
 };
 
-type ResultTab = 'timeline' | 'briefing' | 'advisor' | 'neuro';
-
-const TAB_LABELS: { key: ResultTab; label: string; emoji: string }[] = [
-  { key: 'timeline', label: '타임라인', emoji: '📅' },
-  { key: 'briefing', label: '브리핑', emoji: '📋' },
-  { key: 'advisor', label: '조언자', emoji: '💬' },
-  { key: 'neuro', label: '뇌과학', emoji: '🧠' },
-];
-
-const CATEGORY_FILTERS: { key: Category | 'all'; label: string; emoji: string }[] = [
-  { key: 'all', label: '전체', emoji: '📌' },
-  { key: 'work', label: '업무', emoji: '💼' },
-  { key: 'family', label: '가족', emoji: '🏠' },
-  { key: 'personal', label: '개인', emoji: '👤' },
-  { key: 'health', label: '건강', emoji: '🏃' },
-];
-
 export function PlannerContainer() {
   const [date, setDate] = useState(getToday());
   const [theme, toggleTheme] = useTheme();
@@ -106,9 +88,6 @@ export function PlannerContainer() {
   const [error, setError] = useState<string | null>(null);
   const [streamText, setStreamText] = useState('');
 
-  const [activeTab, setActiveTab] = useState<ResultTab>('timeline');
-  const [categoryFilter, setCategoryFilter] = useState<Category | 'all'>('all');
-
   const [showSettings, setShowSettings] = useState(false);
   const [showAdvisorSettings, setShowAdvisorSettings] = useState(false);
 
@@ -117,7 +96,7 @@ export function PlannerContainer() {
 
   const { setCache } = useAnalysisCache();
 
-  // ─── Streaming Analysis (#1) ───
+  // ─── Streaming Analysis ───
   const runAnalysis = useCallback(
     async (items: ScheduleItem[], advisorIds?: string[]) => {
       if (!apiKey) { setShowSettings(true); return; }
@@ -134,7 +113,6 @@ export function PlannerContainer() {
       setError(null);
       setStreamText('');
       setView('result');
-      setActiveTab('timeline');
 
       try {
         setProgress({ step: 1, total: 3, label: '프롬프트 준비 중...' });
@@ -223,16 +201,7 @@ export function PlannerContainer() {
     [setSelectedAdvisorIds, runAnalysis]
   );
 
-  // ─── Timeline click → scroll to briefing (#6) ───
-  const scrollToBriefing = useCallback((scheduleId: number) => {
-    setActiveTab('briefing');
-    setTimeout(() => {
-      const target = document.getElementById(`briefing-${scheduleId}`);
-      target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 150);
-  }, []);
-
-  // ─── Swipe gesture (#10) ───
+  // ─── Swipe gesture for date change ───
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
   }, []);
@@ -247,21 +216,8 @@ export function PlannerContainer() {
     }
   }, [date]);
 
-  // ─── Category filter (#9) ───
-  const filteredTimeline = analysisResult?.timeline.filter(
-    (t) => categoryFilter === 'all' || t.category === categoryFilter
-  ) || [];
-
-  const filteredTips = analysisResult?.schedule_tips.filter(
-    (st) => categoryFilter === 'all' || filteredTimeline.some((t) => t.id === st.schedule_id)
-  ) || [];
-
-  const hasBriefings = analysisResult?.briefings && analysisResult.briefings.length > 0;
   const hasEnergy = analysisResult?.energy_chart && analysisResult.energy_chart.length > 0;
-  const visibleTabs = TAB_LABELS.filter((tab) => {
-    if (tab.key === 'briefing' && !hasBriefings) return false;
-    return true;
-  });
+  const hasBriefings = analysisResult?.briefings && analysisResult.briefings.length > 0;
 
   if (!isLoaded) return <div className="min-h-screen" style={{ background: 'var(--color-bg)' }} />;
 
@@ -318,9 +274,10 @@ export function PlannerContainer() {
           </>
         )}
 
-        {/* ─── RESULT VIEW ─── */}
+        {/* ─── RESULT VIEW (Single page scroll) ─── */}
         {view === 'result' && (
           <>
+            {/* Top bar: back + mode badge + share */}
             <div className="flex items-center justify-between">
               <button
                 onClick={() => { setView('form'); setError(null); }}
@@ -346,8 +303,10 @@ export function PlannerContainer() {
               </p>
             )}
 
+            {/* Loading skeleton */}
             {isAnalyzing && <AnalysisSkeleton progress={progress} streamText={streamText || undefined} />}
 
+            {/* Error */}
             {error && (
               <div className="apple-card p-5 fade-in" style={{ borderLeft: '4px solid var(--color-danger)' }}>
                 <p className="text-[17px] mb-3" style={{ color: 'var(--color-text)' }}>{error}</p>
@@ -357,88 +316,57 @@ export function PlannerContainer() {
               </div>
             )}
 
+            {/* ─── ALL SECTIONS on single page ─── */}
             {analysisResult && !isAnalyzing && (
               <div className="space-y-5 fade-in">
+                {/* 1. Overall tip */}
                 {analysisResult.overall_tip && (
-                  <div className="apple-card p-5" style={{ borderLeft: '4px solid var(--color-accent)' }}>
-                    <p className="text-[18px] font-semibold" style={{ color: 'var(--color-text)' }}>
+                  <div className="apple-card p-4" style={{ borderLeft: '4px solid var(--color-accent)' }}>
+                    <p className="text-[17px] font-semibold" style={{ color: 'var(--color-text)' }}>
                       💡 {analysisResult.overall_tip}
                     </p>
                   </div>
                 )}
 
-                {/* Tab bar (#8) */}
-                <div className="tab-bar">
-                  {visibleTabs.map((tab) => (
-                    <button
-                      key={tab.key}
-                      onClick={() => setActiveTab(tab.key)}
-                      className={activeTab === tab.key ? 'active' : ''}
-                    >
-                      {tab.emoji} {tab.label}
-                    </button>
-                  ))}
-                </div>
+                {/* 2. Schedule Table (Timeline + Tips + Briefings merged) */}
+                <ScheduleTable
+                  timeline={analysisResult.timeline}
+                  scheduleTips={analysisResult.schedule_tips}
+                  briefings={analysisResult.briefings}
+                />
 
-                {/* TAB: Timeline */}
-                {activeTab === 'timeline' && (
-                  <div className="space-y-4 fade-in">
-                    <div className="flex gap-2 flex-wrap">
-                      {CATEGORY_FILTERS.map((f) => (
-                        <button
-                          key={f.key}
-                          onClick={() => setCategoryFilter(f.key)}
-                          className={`filter-chip ${categoryFilter === f.key ? 'active' : ''}`}
-                        >
-                          {f.emoji} {f.label}
-                        </button>
-                      ))}
-                    </div>
-                    <BlockCalendar
-                      timeline={filteredTimeline}
-                      scheduleTips={filteredTips}
-                      onEventClick={hasBriefings ? scrollToBriefing : undefined}
-                    />
-                    {hasEnergy && <EnergyChart data={analysisResult.energy_chart!} />}
-                  </div>
+                {/* 3. Detailed Briefings (accordion - if available) */}
+                {hasBriefings && (
+                  <BriefingList briefings={analysisResult.briefings!} />
                 )}
 
-                {/* TAB: Briefing */}
-                {activeTab === 'briefing' && hasBriefings && (
-                  <div className="fade-in">
-                    <BriefingList briefings={analysisResult.briefings!} />
-                  </div>
-                )}
+                {/* 4. Energy Chart */}
+                {hasEnergy && <EnergyChart data={analysisResult.energy_chart!} />}
 
-                {/* TAB: Advisor */}
-                {activeTab === 'advisor' && (
-                  <div className="fade-in">
-                    <AdvisorPanel
-                      advisors={analysisResult.advisors}
-                      tone={advisorTone}
-                      onChangeTone={setAdvisorTone}
-                      onChangeAdvisors={() => setShowAdvisorSettings(true)}
-                    />
-                  </div>
-                )}
+                {/* 5. Advisor Panel */}
+                <AdvisorPanel
+                  advisors={analysisResult.advisors}
+                  tone={advisorTone}
+                  onChangeTone={setAdvisorTone}
+                  onChangeAdvisors={() => setShowAdvisorSettings(true)}
+                />
 
-                {/* TAB: Neuro */}
-                {activeTab === 'neuro' && (
-                  <div className="fade-in">
-                    {analysisResult.daily_neuro_summary && (
-                      <div className="apple-card p-5" style={{ borderLeft: '4px solid var(--color-neuro)' }}>
-                        <p className="text-[17px] font-semibold mb-3" style={{ color: 'var(--color-text)' }}>
-                          🧠 {analysisResult.daily_neuro_summary}
-                        </p>
-                        {analysisResult.neuro_tips.length > 0 && (
-                          <div className="space-y-2">
-                            {analysisResult.neuro_tips.map((tip, i) => (
-                              <p key={i} className="text-[16px]" style={{ color: 'var(--color-text-secondary)' }}>
-                                {tip.emoji} {tip.label} · {tip.duration}분 — {tip.reason}
-                              </p>
-                            ))}
-                          </div>
-                        )}
+                {/* 6. Neuro Summary */}
+                {analysisResult.daily_neuro_summary && (
+                  <div className="apple-card p-5 fade-in" style={{ borderLeft: '4px solid var(--color-neuro)' }}>
+                    <h3 className="text-lg font-bold mb-3" style={{ color: 'var(--color-text)' }}>
+                      🧠 뇌과학 팁
+                    </h3>
+                    <p className="text-[16px] font-medium mb-3" style={{ color: 'var(--color-text)' }}>
+                      {analysisResult.daily_neuro_summary}
+                    </p>
+                    {analysisResult.neuro_tips.length > 0 && (
+                      <div className="space-y-2">
+                        {analysisResult.neuro_tips.map((tip, i) => (
+                          <p key={i} className="text-[15px]" style={{ color: 'var(--color-text-secondary)' }}>
+                            {tip.emoji} {tip.label} · {tip.duration}분 — {tip.reason}
+                          </p>
+                        ))}
                       </div>
                     )}
                   </div>
