@@ -15,10 +15,6 @@ import { useTheme } from '@/hooks/useTheme';
 import { useScheduleStore } from '@/hooks/useScheduleStore';
 import { useAnalysisCache } from '@/hooks/useAnalysisCache';
 import {
-  checkOverload,
-  findRecoverySuggestions,
-  isRestDay,
-  getEnergyTip,
   getToday,
 } from '@/lib/schedule-utils';
 import { assemblePrompt } from '@/lib/prompt-assembler';
@@ -27,7 +23,6 @@ import { createOpenAI } from '@/lib/openai';
 
 import { DateHeader } from './DateHeader';
 import { QuickInput } from './QuickInput';
-import { OverloadBanner } from './OverloadBanner';
 import { AnalysisSkeleton } from './AnalysisSkeleton';
 import { BlockCalendar } from './BlockCalendar';
 import { BriefingCard } from './BriefingCard';
@@ -60,13 +55,6 @@ const ALL_ADVISORS: Advisor[] = [
 
 const DEFAULT_ADVISOR_IDS = ['em', 'wb', 'sn'];
 
-const CATEGORY_LABELS: Record<string, { emoji: string; label: string }> = {
-  work: { emoji: '💼', label: '업무' },
-  family: { emoji: '🏠', label: '가족' },
-  personal: { emoji: '👤', label: '개인' },
-  health: { emoji: '🏃', label: '건강' },
-};
-
 export function PlannerContainer() {
   const [date, setDate] = useState(getToday());
   const [theme, toggleTheme] = useTheme();
@@ -78,9 +66,9 @@ export function PlannerContainer() {
   const [advisorTone, setAdvisorTone] = useLocalStorage<AdvisorTone>('ceo-planner-tone', 'encouraging');
   const [profile, setProfile] = useLocalStorage<UserProfile>('ceo-planner-profile', DEFAULT_PROFILE);
 
-  // Schedule
+  // Schedule store (for energy, review, completedCount, weekly stats)
   const {
-    schedules, energyLevel, review, completedCount, isLoaded,
+    energyLevel, review, completedCount, isLoaded,
     updateSchedules, updateEnergyLevel, updateReview, updateCompletedCount, getWeeklyStats,
   } = useScheduleStore(date);
 
@@ -98,19 +86,19 @@ export function PlannerContainer() {
   const { getCached, setCache } = useAnalysisCache();
 
   // Derived
-  const overloadMsg = checkOverload(schedules);
-  const recoverySuggestions = findRecoverySuggestions(schedules);
-  const energyTip = getEnergyTip(energyLevel, schedules);
   const selectedAdvisors = ALL_ADVISORS.filter((a) => selectedAdvisorIds.includes(a.id));
   const weeklyStats = getWeeklyStats();
 
-  // Schedule list display (sorted)
-  const sortedSchedules = [...schedules].sort((a, b) => a.startTime.localeCompare(b.startTime));
-
-  // ─── Analysis handler ───
+  // ─── Analysis handler (receives items directly from QuickInput) ───
   const runAnalysis = useCallback(
-    async (restMode = false) => {
+    async (items: ScheduleItem[]) => {
       if (!apiKey) { setShowSettings(true); return; }
+
+      const restMode = items.length === 0;
+      const schedules = items;
+
+      // Save schedules to store for persistence
+      updateSchedules(() => schedules);
 
       const cached = getCached(schedules, energyLevel, selectedAdvisorIds);
       if (cached && !restMode) {
@@ -169,16 +157,8 @@ export function PlannerContainer() {
         setIsAnalyzing(false);
       }
     },
-    [apiKey, model, schedules, energyLevel, selectedAdvisors, selectedAdvisorIds, advisorTone, profile, completedCount, getCached, setCache, updateCompletedCount]
+    [apiKey, model, energyLevel, selectedAdvisors, selectedAdvisorIds, advisorTone, profile, completedCount, getCached, setCache, updateCompletedCount, updateSchedules]
   );
-
-  const handleAddSchedules = (items: ScheduleItem[]) => {
-    updateSchedules((prev) => [...prev, ...items]);
-  };
-
-  const handleDeleteSchedule = (id: string) => {
-    updateSchedules((prev) => prev.filter(s => s.id !== id));
-  };
 
   const handleScrollToBriefing = (id: number) => {
     const el = document.getElementById(`briefing-${id}`);
@@ -206,69 +186,8 @@ export function PlannerContainer() {
             {/* Profile Card */}
             <ProfileCard profile={profile} onSave={setProfile} />
 
-            {/* Quick Input */}
-            <QuickInput
-              onAddSchedules={handleAddSchedules}
-              onAnalyze={() => runAnalysis(false)}
-              hasSchedules={schedules.length > 0}
-            />
-
-            {/* Schedule List (visual) */}
-            {sortedSchedules.length > 0 && (
-              <div className="apple-card p-5 space-y-3 fade-in">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-bold" style={{ color: 'var(--color-text)' }}>
-                    오늘의 일정 ({schedules.length}개)
-                  </h3>
-                  <button
-                    onClick={() => updateSchedules(() => [])}
-                    className="text-[15px]"
-                    style={{ color: 'var(--color-danger)' }}
-                  >
-                    전체 삭제
-                  </button>
-                </div>
-                {sortedSchedules.map((item) => (
-                  <div key={item.id} className="flex items-center gap-3 py-2 border-b" style={{ borderColor: 'var(--color-border)' }}>
-                    <div
-                      className="w-1 h-10 rounded-full flex-shrink-0"
-                      style={{
-                        background: item.priority === 'high' ? 'var(--color-priority-high)' :
-                                    item.priority === 'medium' ? 'var(--color-priority-medium)' : 'var(--color-priority-low)'
-                      }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[17px] font-medium truncate" style={{ color: 'var(--color-text)' }}>{item.title}</p>
-                      <p className="text-[14px]" style={{ color: 'var(--color-text-muted)' }}>
-                        {item.startTime}~{item.endTime} · {CATEGORY_LABELS[item.category]?.emoji} {CATEGORY_LABELS[item.category]?.label}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleDeleteSchedule(item.id)}
-                      className="text-[15px] px-2"
-                      style={{ color: 'var(--color-text-muted)' }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-
-                <div className="flex gap-3 pt-2">
-                  <button onClick={() => runAnalysis(false)} className="btn-primary flex-1 py-3">
-                    🔍 분석하기
-                  </button>
-                  <button
-                    onClick={() => runAnalysis(true)}
-                    className="btn-secondary flex-1 py-3"
-                  >
-                    🛋️ 쉬는 날
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Overload warnings */}
-            <OverloadBanner overloadMessage={overloadMsg} recoverySuggestions={recoverySuggestions} energyTip={energyTip} />
+            {/* Quick Input — single textarea, real-time preview, analyze button */}
+            <QuickInput onAnalyze={runAnalysis} />
           </>
         )}
 
@@ -294,7 +213,7 @@ export function PlannerContainer() {
             {error && (
               <div className="apple-card p-5 fade-in" style={{ borderLeft: '4px solid var(--color-danger)' }}>
                 <p className="text-[17px] mb-3" style={{ color: 'var(--color-text)' }}>{error}</p>
-                <button onClick={() => runAnalysis(false)} className="btn-primary px-5 py-2.5">
+                <button onClick={() => runAnalysis([])} className="btn-primary px-5 py-2.5">
                   다시 시도
                 </button>
               </div>
