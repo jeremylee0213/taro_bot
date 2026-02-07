@@ -1,4 +1,4 @@
-import { ScheduleItem, EnergyLevel, Emotion, AdvisorTone, Advisor } from '@/types/schedule';
+import { ScheduleItem, EnergyLevel, Emotion, AdvisorTone, Advisor, UserProfile } from '@/types/schedule';
 import { SYSTEM_PROMPT, OUTPUT_SCHEMA, ADVISOR_POOL } from './prompt-data';
 
 let cachedSystemPrompt: string | null = null;
@@ -11,7 +11,7 @@ function getSystemPromptBase(): string {
     '\n\n---\n\n## Reference: Advisor Pool\n',
     ADVISOR_POOL,
     '\n\n---\n\n## Output JSON Schema\n',
-    '반드시 아래 JSON 스키마에 맞춰 순수 JSON으로만 응답하십시오. 마크다운이나 코드블록(```)으로 감싸지 마십시오.\n\n',
+    '반드시 아래 JSON 스키마에 맞춰 순수 JSON으로만 응답하십시오. 마크다운이나 코드블록으로 감싸지 마십시오.\n\n',
     OUTPUT_SCHEMA,
   ].join('');
 
@@ -38,16 +38,27 @@ function formatScheduleList(schedules: ScheduleItem[]): string {
     .join('\n');
 }
 
+function formatProfile(profile: UserProfile): string {
+  const lines: string[] = [];
+  if (profile.traits.length > 0) lines.push(`기질: ${profile.traits.join(', ')}`);
+  if (profile.medications.length > 0) lines.push(`복용 약물: ${profile.medications.join(', ')}`);
+  if (profile.preferences.length > 0) lines.push(`선호 활동: ${profile.preferences.join(', ')}`);
+  if (profile.sleepGoal) lines.push(`수면 목표: ${profile.sleepGoal}`);
+  if (profile.notes) lines.push(`메모: ${profile.notes}`);
+  return lines.join('\n');
+}
+
 interface AssembleParams {
   schedules: ScheduleItem[];
   energyLevel: EnergyLevel;
   advisors: Advisor[];
   advisorTone: AdvisorTone;
+  profile: UserProfile;
   isRestDay?: boolean;
 }
 
 export function assemblePrompt(params: AssembleParams): { role: string; content: string }[] {
-  const { schedules, energyLevel, advisors, advisorTone, isRestDay } = params;
+  const { schedules, energyLevel, advisors, advisorTone, profile, isRestDay } = params;
 
   const systemContent = getSystemPromptBase();
 
@@ -66,6 +77,9 @@ export function assemblePrompt(params: AssembleParams): { role: string; content:
 
   let userContent = `## 오늘의 일정 분석 요청
 
+### 사용자 프로필
+${formatProfile(profile)}
+
 ### 에너지 레벨
 ${energyLabels[energyLevel]}
 
@@ -80,6 +94,8 @@ ${formatScheduleList(schedules)}
   if (isRestDay) {
     userContent += '\n### 모드\n쉬는 날 모드 — 리커버리 전략을 제안해주세요.\n';
   }
+
+  userContent += '\n### 중요 지시\n- neuro_tips: 일정 사이에 삽입할 뇌과학 기반 회복 활동을 반드시 3개 이상 제안\n- daily_neuro_summary: ADHD/HSP 특성과 약물 복용 시간을 고려한 종합 팁 (3~5문장)\n';
 
   return [
     { role: 'system', content: systemContent },

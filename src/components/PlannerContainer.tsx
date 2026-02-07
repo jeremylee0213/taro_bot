@@ -7,6 +7,8 @@ import {
   AnalysisView,
   AdvisorTone,
   Advisor,
+  UserProfile,
+  ScheduleItem,
 } from '@/types/schedule';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useTheme } from '@/hooks/useTheme';
@@ -24,11 +26,10 @@ import { parseResponse } from '@/lib/parse-response';
 import { createOpenAI } from '@/lib/openai';
 
 import { DateHeader } from './DateHeader';
-import { EmptyState } from './EmptyState';
-import { ScheduleForm } from './ScheduleForm';
+import { QuickInput } from './QuickInput';
 import { OverloadBanner } from './OverloadBanner';
 import { AnalysisSkeleton } from './AnalysisSkeleton';
-import { TimelineChart } from './TimelineChart';
+import { BlockCalendar } from './BlockCalendar';
 import { BriefingCard } from './BriefingCard';
 import { AdvisorPanel } from './AdvisorPanel';
 import { AdvisorSettings } from './AdvisorSettings';
@@ -36,6 +37,7 @@ import { ReviewSection } from './ReviewSection';
 import { AchievementTracker } from './AchievementTracker';
 import { ShareButton } from './ShareButton';
 import { SettingsModal } from './SettingsModal';
+import { ProfileCard, DEFAULT_PROFILE } from './ProfileCard';
 
 // ─── All Advisors ───
 const ALL_ADVISORS: Advisor[] = [
@@ -58,37 +60,28 @@ const ALL_ADVISORS: Advisor[] = [
 
 const DEFAULT_ADVISOR_IDS = ['em', 'wb', 'sn'];
 
-export function PlannerContainer() {
-  // Date
-  const [date, setDate] = useState(getToday());
+const CATEGORY_LABELS: Record<string, { emoji: string; label: string }> = {
+  work: { emoji: '💼', label: '업무' },
+  family: { emoji: '🏠', label: '가족' },
+  personal: { emoji: '👤', label: '개인' },
+  health: { emoji: '🏃', label: '건강' },
+};
 
-  // Theme
+export function PlannerContainer() {
+  const [date, setDate] = useState(getToday());
   const [theme, toggleTheme] = useTheme();
 
   // Settings
   const [apiKey, setApiKey] = useLocalStorage('ceo-planner-apikey', '');
   const [model, setModel] = useLocalStorage('ceo-planner-model', 'gpt-4o');
-  const [selectedAdvisorIds, setSelectedAdvisorIds] = useLocalStorage<string[]>(
-    'ceo-planner-advisors',
-    DEFAULT_ADVISOR_IDS
-  );
-  const [advisorTone, setAdvisorTone] = useLocalStorage<AdvisorTone>(
-    'ceo-planner-tone',
-    'encouraging'
-  );
+  const [selectedAdvisorIds, setSelectedAdvisorIds] = useLocalStorage<string[]>('ceo-planner-advisors', DEFAULT_ADVISOR_IDS);
+  const [advisorTone, setAdvisorTone] = useLocalStorage<AdvisorTone>('ceo-planner-tone', 'encouraging');
+  const [profile, setProfile] = useLocalStorage<UserProfile>('ceo-planner-profile', DEFAULT_PROFILE);
 
-  // Schedule store
+  // Schedule
   const {
-    schedules,
-    energyLevel,
-    review,
-    completedCount,
-    isLoaded,
-    updateSchedules,
-    updateEnergyLevel,
-    updateReview,
-    updateCompletedCount,
-    getWeeklyStats,
+    schedules, energyLevel, review, completedCount, isLoaded,
+    updateSchedules, updateEnergyLevel, updateReview, updateCompletedCount, getWeeklyStats,
   } = useScheduleStore(date);
 
   // Analysis
@@ -102,26 +95,23 @@ export function PlannerContainer() {
   const [showSettings, setShowSettings] = useState(false);
   const [showAdvisorSettings, setShowAdvisorSettings] = useState(false);
 
-  // Cache
   const { getCached, setCache } = useAnalysisCache();
 
   // Derived
   const overloadMsg = checkOverload(schedules);
   const recoverySuggestions = findRecoverySuggestions(schedules);
   const energyTip = getEnergyTip(energyLevel, schedules);
-  const restDay = isRestDay(schedules);
   const selectedAdvisors = ALL_ADVISORS.filter((a) => selectedAdvisorIds.includes(a.id));
   const weeklyStats = getWeeklyStats();
+
+  // Schedule list display (sorted)
+  const sortedSchedules = [...schedules].sort((a, b) => a.startTime.localeCompare(b.startTime));
 
   // ─── Analysis handler ───
   const runAnalysis = useCallback(
     async (restMode = false) => {
-      if (!apiKey) {
-        setShowSettings(true);
-        return;
-      }
+      if (!apiKey) { setShowSettings(true); return; }
 
-      // Check cache
       const cached = getCached(schedules, energyLevel, selectedAdvisorIds);
       if (cached && !restMode) {
         setAnalysisResult(cached);
@@ -134,17 +124,15 @@ export function PlannerContainer() {
       setView('result');
 
       try {
-        // Step 1: Prepare
         setProgress({ step: 1, total: 3, label: '프롬프트 준비 중...' });
         const messages = assemblePrompt({
-          schedules,
-          energyLevel,
+          schedules, energyLevel,
           advisors: selectedAdvisors,
           advisorTone,
+          profile,
           isRestDay: restMode,
         });
 
-        // Step 2: API call
         setProgress({ step: 2, total: 3, label: 'AI 분석 중...' });
         const openai = createOpenAI(apiKey);
 
@@ -157,14 +145,11 @@ export function PlannerContainer() {
           model,
           messages: messages as Parameters<typeof openai.chat.completions.create>[0]['messages'],
           response_format: { type: 'json_object' },
-          ...(useNewTokenParam
-            ? { max_completion_tokens: 4096 }
-            : { max_tokens: 4096 }),
+          ...(useNewTokenParam ? { max_completion_tokens: 4096 } : { max_tokens: 4096 }),
         });
 
         const raw = response.choices[0]?.message?.content || '';
 
-        // Step 3: Parse
         setProgress({ step: 3, total: 3, label: '결과 정리 중...' });
         const result = parseResponse(raw);
 
@@ -177,8 +162,6 @@ export function PlannerContainer() {
           setError('API 키가 올바르지 않습니다. 설정에서 확인해주세요.');
         } else if (errMsg.includes('429')) {
           setError('요청이 너무 많습니다. 잠시 후 다시 시도해주세요.');
-        } else if (errMsg.includes('500') || errMsg.includes('502') || errMsg.includes('503')) {
-          setError('OpenAI 서버에 문제가 있습니다. 잠시 후 다시 시도해주세요.');
         } else {
           setError(`오류가 발생했습니다: ${errMsg}`);
         }
@@ -186,20 +169,26 @@ export function PlannerContainer() {
         setIsAnalyzing(false);
       }
     },
-    [apiKey, model, schedules, energyLevel, selectedAdvisors, selectedAdvisorIds, advisorTone, completedCount, getCached, setCache, updateCompletedCount]
+    [apiKey, model, schedules, energyLevel, selectedAdvisors, selectedAdvisorIds, advisorTone, profile, completedCount, getCached, setCache, updateCompletedCount]
   );
+
+  const handleAddSchedules = (items: ScheduleItem[]) => {
+    updateSchedules((prev) => [...prev, ...items]);
+  };
+
+  const handleDeleteSchedule = (id: string) => {
+    updateSchedules((prev) => prev.filter(s => s.id !== id));
+  };
 
   const handleScrollToBriefing = (id: number) => {
     const el = document.getElementById(`briefing-${id}`);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
-  if (!isLoaded) {
-    return <div className="min-h-screen bg-bg" />;
-  }
+  if (!isLoaded) return <div className="min-h-screen" style={{ background: 'var(--color-bg)' }} />;
 
   return (
-    <div className="min-h-screen bg-bg">
+    <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
       <DateHeader
         date={date}
         onDateChange={setDate}
@@ -210,62 +199,88 @@ export function PlannerContainer() {
         onOpenSettings={() => setShowSettings(true)}
       />
 
-      <main className="max-w-2xl mx-auto px-4 py-4 space-y-4">
-        {/* ─── Form View ─── */}
+      <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        {/* ─── FORM VIEW ─── */}
         {view === 'form' && (
           <>
-            {schedules.length === 0 ? (
-              <EmptyState
-                onAddSchedule={() => {
-                  updateSchedules((prev) => [
-                    ...prev,
-                    {
-                      id: Date.now().toString(36),
-                      startTime: '09:00',
-                      endTime: '10:00',
-                      title: '',
-                      priority: 'medium',
-                      category: 'work',
-                      emotion: 'normal',
-                    },
-                  ]);
-                }}
-                onApplyPreset={() => {
-                  // Apply default preset
-                  updateSchedules(() => [
-                    { id: '1', startTime: '09:00', endTime: '10:00', title: '메일 확인 및 업무 정리', priority: 'medium' as const, category: 'work' as const, emotion: 'normal' as const },
-                    { id: '2', startTime: '10:00', endTime: '12:00', title: '핵심 업무 집중', priority: 'high' as const, category: 'work' as const, emotion: 'normal' as const },
-                    { id: '3', startTime: '13:00', endTime: '14:00', title: '팀 미팅', priority: 'medium' as const, category: 'work' as const, emotion: 'normal' as const },
-                    { id: '4', startTime: '14:00', endTime: '17:00', title: '프로젝트 작업', priority: 'medium' as const, category: 'work' as const, emotion: 'normal' as const },
-                  ]);
-                }}
-              />
-            ) : (
-              <>
-                <ScheduleForm
-                  schedules={schedules}
-                  onUpdate={updateSchedules}
-                  onAnalyze={() => runAnalysis(false)}
-                  onRestDay={() => runAnalysis(true)}
-                />
-                <OverloadBanner
-                  overloadMessage={overloadMsg}
-                  recoverySuggestions={recoverySuggestions}
-                  energyTip={energyTip}
-                />
-              </>
+            {/* Profile Card */}
+            <ProfileCard profile={profile} onSave={setProfile} />
+
+            {/* Quick Input */}
+            <QuickInput
+              onAddSchedules={handleAddSchedules}
+              onAnalyze={() => runAnalysis(false)}
+              hasSchedules={schedules.length > 0}
+            />
+
+            {/* Schedule List (visual) */}
+            {sortedSchedules.length > 0 && (
+              <div className="apple-card p-5 space-y-3 fade-in">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-bold" style={{ color: 'var(--color-text)' }}>
+                    오늘의 일정 ({schedules.length}개)
+                  </h3>
+                  <button
+                    onClick={() => updateSchedules(() => [])}
+                    className="text-[15px]"
+                    style={{ color: 'var(--color-danger)' }}
+                  >
+                    전체 삭제
+                  </button>
+                </div>
+                {sortedSchedules.map((item) => (
+                  <div key={item.id} className="flex items-center gap-3 py-2 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                    <div
+                      className="w-1 h-10 rounded-full flex-shrink-0"
+                      style={{
+                        background: item.priority === 'high' ? 'var(--color-priority-high)' :
+                                    item.priority === 'medium' ? 'var(--color-priority-medium)' : 'var(--color-priority-low)'
+                      }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[17px] font-medium truncate" style={{ color: 'var(--color-text)' }}>{item.title}</p>
+                      <p className="text-[14px]" style={{ color: 'var(--color-text-muted)' }}>
+                        {item.startTime}~{item.endTime} · {CATEGORY_LABELS[item.category]?.emoji} {CATEGORY_LABELS[item.category]?.label}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteSchedule(item.id)}
+                      className="text-[15px] px-2"
+                      style={{ color: 'var(--color-text-muted)' }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+
+                <div className="flex gap-3 pt-2">
+                  <button onClick={() => runAnalysis(false)} className="btn-primary flex-1 py-3">
+                    🔍 분석하기
+                  </button>
+                  <button
+                    onClick={() => runAnalysis(true)}
+                    className="btn-secondary flex-1 py-3"
+                  >
+                    🛋️ 쉬는 날
+                  </button>
+                </div>
+              </div>
             )}
+
+            {/* Overload warnings */}
+            <OverloadBanner overloadMessage={overloadMsg} recoverySuggestions={recoverySuggestions} energyTip={energyTip} />
           </>
         )}
 
-        {/* ─── Result View ─── */}
+        {/* ─── RESULT VIEW ─── */}
         {view === 'result' && (
           <>
-            {/* Back button + Share */}
+            {/* Navigation */}
             <div className="flex items-center justify-between">
               <button
                 onClick={() => { setView('form'); setError(null); }}
-                className="text-xs text-accent hover:underline flex items-center gap-1"
+                className="text-[17px] font-medium"
+                style={{ color: 'var(--color-accent)' }}
               >
                 ← 일정 수정
               </button>
@@ -277,12 +292,9 @@ export function PlannerContainer() {
 
             {/* Error */}
             {error && (
-              <div className="bg-danger/10 border border-danger/20 rounded-xl p-4 fade-in">
-                <p className="text-sm text-text-primary mb-2">{error}</p>
-                <button
-                  onClick={() => runAnalysis(false)}
-                  className="btn-primary px-3 py-1.5 text-xs rounded-lg"
-                >
+              <div className="apple-card p-5 fade-in" style={{ borderLeft: '4px solid var(--color-danger)' }}>
+                <p className="text-[17px] mb-3" style={{ color: 'var(--color-text)' }}>{error}</p>
+                <button onClick={() => runAnalysis(false)} className="btn-primary px-5 py-2.5">
                   다시 시도
                 </button>
               </div>
@@ -290,60 +302,66 @@ export function PlannerContainer() {
 
             {/* Results */}
             {analysisResult && !isAnalyzing && (
-              <div className="space-y-4 fade-in">
+              <div className="space-y-6 fade-in">
                 {/* Overall tip */}
                 {analysisResult.overall_tip && (
-                  <div className="bg-accent/10 border border-accent/20 rounded-xl px-4 py-3">
-                    <p className="text-sm text-text-primary">
+                  <div className="apple-card p-5" style={{ borderLeft: '4px solid var(--color-accent)' }}>
+                    <p className="text-[17px] font-medium" style={{ color: 'var(--color-text)' }}>
                       💡 {analysisResult.overall_tip}
                     </p>
                   </div>
                 )}
 
-                {/* Overload warning from AI */}
+                {/* Warnings */}
                 {analysisResult.overload_warning && (
-                  <div className="bg-danger/10 border border-danger/20 rounded-xl px-4 py-3">
-                    <p className="text-sm text-text-primary">
-                      ⚠️ {analysisResult.overload_warning}
-                    </p>
+                  <div className="apple-card p-5" style={{ borderLeft: '4px solid var(--color-danger)' }}>
+                    <p className="text-[17px]" style={{ color: 'var(--color-text)' }}>⚠️ {analysisResult.overload_warning}</p>
                   </div>
                 )}
 
-                {/* Recovery suggestions from AI */}
-                {analysisResult.recovery_suggestions.length > 0 && (
-                  <div className="bg-success/10 border border-success/20 rounded-xl px-4 py-3 space-y-1">
-                    {analysisResult.recovery_suggestions.map((s, i) => (
-                      <p key={i} className="text-xs text-text-primary">💚 {s}</p>
-                    ))}
-                  </div>
-                )}
-
-                {/* Rest mode tip */}
-                {analysisResult.rest_mode_tip && (
-                  <div className="bg-info/10 border border-info/20 rounded-xl px-4 py-3">
-                    <p className="text-sm text-text-primary">
-                      🛋️ {analysisResult.rest_mode_tip}
-                    </p>
-                  </div>
-                )}
-
-                {/* Timeline */}
-                <TimelineChart
+                {/* Block Calendar */}
+                <BlockCalendar
                   timeline={analysisResult.timeline}
+                  neuroTips={analysisResult.neuro_tips}
                   onClickEntry={handleScrollToBriefing}
                 />
 
                 {/* Briefings */}
                 {analysisResult.briefings.length > 0 && (
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-semibold text-text-primary">📋 브리핑</h3>
+                  <div className="space-y-3">
+                    <h3 className="text-xl font-bold" style={{ color: 'var(--color-text)' }}>📋 브리핑</h3>
                     {analysisResult.briefings.map((b, idx) => (
-                      <BriefingCard
-                        key={b.id}
-                        briefing={b}
-                        defaultOpen={idx === 0}
-                      />
+                      <BriefingCard key={b.id} briefing={b} defaultOpen={idx === 0} />
                     ))}
+                  </div>
+                )}
+
+                {/* 🧠 Neuroscience Summary */}
+                {analysisResult.daily_neuro_summary && (
+                  <div className="neuro-card p-5 space-y-3 fade-in">
+                    <h3 className="text-xl font-bold" style={{ color: 'var(--color-text)' }}>🧠 오늘의 뇌과학 제안</h3>
+                    <p className="text-[17px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+                      {analysisResult.daily_neuro_summary}
+                    </p>
+
+                    {/* Neuro tips list */}
+                    {analysisResult.neuro_tips.length > 0 && (
+                      <div className="space-y-2 pt-2">
+                        {analysisResult.neuro_tips.map((tip, i) => (
+                          <div key={i} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: 'var(--color-surface)' }}>
+                            <span className="text-2xl">{tip.emoji}</span>
+                            <div>
+                              <p className="text-[16px] font-semibold" style={{ color: 'var(--color-text)' }}>
+                                {tip.label} · {tip.duration}분
+                              </p>
+                              <p className="text-[14px]" style={{ color: 'var(--color-text-muted)' }}>
+                                {tip.reason}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -355,37 +373,30 @@ export function PlannerContainer() {
                   onChangeAdvisors={() => setShowAdvisorSettings(true)}
                 />
 
+                {/* Recovery suggestions */}
+                {analysisResult.recovery_suggestions.length > 0 && (
+                  <div className="apple-card p-5 space-y-2" style={{ borderLeft: '4px solid var(--color-success)' }}>
+                    <h3 className="text-lg font-bold" style={{ color: 'var(--color-text)' }}>💚 회복 제안</h3>
+                    {analysisResult.recovery_suggestions.map((s, i) => (
+                      <p key={i} className="text-[16px]" style={{ color: 'var(--color-text-secondary)' }}>• {s}</p>
+                    ))}
+                  </div>
+                )}
+
                 {/* Review */}
                 <ReviewSection review={review} onSave={updateReview} />
 
                 {/* Achievement */}
-                <AchievementTracker
-                  totalSchedules={weeklyStats.totalSchedules}
-                  completedCount={weeklyStats.totalCompleted}
-                />
+                <AchievementTracker totalSchedules={weeklyStats.totalSchedules} completedCount={weeklyStats.totalCompleted} />
               </div>
             )}
           </>
         )}
       </main>
 
-      {/* ─── Modals ─── */}
-      <SettingsModal
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
-        apiKey={apiKey}
-        onSaveApiKey={setApiKey}
-        model={model}
-        onSaveModel={setModel}
-      />
-
-      <AdvisorSettings
-        isOpen={showAdvisorSettings}
-        onClose={() => setShowAdvisorSettings(false)}
-        allAdvisors={ALL_ADVISORS}
-        selectedIds={selectedAdvisorIds}
-        onSave={setSelectedAdvisorIds}
-      />
+      {/* Modals */}
+      <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} apiKey={apiKey} onSaveApiKey={setApiKey} model={model} onSaveModel={setModel} />
+      <AdvisorSettings isOpen={showAdvisorSettings} onClose={() => setShowAdvisorSettings(false)} allAdvisors={ALL_ADVISORS} selectedIds={selectedAdvisorIds} onSave={setSelectedAdvisorIds} />
     </div>
   );
 }

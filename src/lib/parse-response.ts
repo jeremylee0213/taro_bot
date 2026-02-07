@@ -1,23 +1,19 @@
-import { AnalysisResult, Priority, Category, TimelineEntry, BriefingEntry, AdvisorComment } from '@/types/schedule';
+import { AnalysisResult, Priority, Category, TimelineEntry, BriefingEntry, AdvisorComment, NeuroSuggestion } from '@/types/schedule';
 
 export function parseResponse(raw: string): AnalysisResult {
-  // Try JSON parse first
   try {
     const data = JSON.parse(raw);
     return normalizeResult(data);
   } catch {
-    // Fallback: try to extract JSON from code blocks
     const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (jsonMatch) {
       try {
         const data = JSON.parse(jsonMatch[1]);
         return normalizeResult(data);
       } catch {
-        // fall through to text fallback
+        // fall through
       }
     }
-
-    // Text fallback — create minimal result from raw text
     return createTextFallback(raw);
   }
 }
@@ -73,6 +69,18 @@ function normalizeResult(data: any): AnalysisResult {
       }))
     : [];
 
+  const neuro_tips: NeuroSuggestion[] = Array.isArray(data.neuro_tips)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ? data.neuro_tips.map((n: any): NeuroSuggestion => ({
+        type: n.type || 'rest',
+        emoji: (n.emoji as string) || '🧠',
+        label: (n.label as string) || '',
+        duration: (n.duration as number) ?? 10,
+        reason: (n.reason as string) || '',
+        insert_after: (n.insert_after as number) ?? 0,
+      }))
+    : [];
+
   return {
     timeline,
     briefings,
@@ -83,29 +91,25 @@ function normalizeResult(data: any): AnalysisResult {
       ? (data.recovery_suggestions as string[])
       : [],
     rest_mode_tip: (data.rest_mode_tip as string) || null,
+    neuro_tips,
+    daily_neuro_summary: (data.daily_neuro_summary as string) || '',
   };
 }
 
 function createTextFallback(text: string): AnalysisResult {
   return {
     timeline: [],
-    briefings: [
-      {
-        id: 0,
-        title: 'AI 분석 결과',
-        confidence: 2,
-        before: [text.slice(0, 200)],
-        during: [],
-        after: [],
-        transition: '',
-        emotion_note: 'JSON 파싱에 실패하여 텍스트로 표시합니다.',
-        is_family: false,
-      },
-    ],
+    briefings: [{
+      id: 0, title: 'AI 분석 결과', confidence: 2,
+      before: [text.slice(0, 200)], during: [], after: [],
+      transition: '', emotion_note: 'JSON 파싱에 실패하여 텍스트로 표시합니다.', is_family: false,
+    }],
     advisors: [],
     overall_tip: '',
     overload_warning: null,
     recovery_suggestions: [],
     rest_mode_tip: null,
+    neuro_tips: [],
+    daily_neuro_summary: '',
   };
 }

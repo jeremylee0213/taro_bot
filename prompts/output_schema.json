@@ -1,6 +1,6 @@
 {
   "type": "object",
-  "required": ["timeline", "briefings", "advisors", "overall_tip", "overload_warning", "recovery_suggestions", "rest_mode_tip"],
+  "required": ["timeline", "briefings", "advisors", "overall_tip", "overload_warning", "recovery_suggestions", "rest_mode_tip", "neuro_tips", "daily_neuro_summary"],
   "properties": {
     "timeline": {
       "type": "array",
@@ -14,8 +14,8 @@
           "title": { "type": "string" },
           "priority": { "type": "string", "enum": ["high", "medium", "low"] },
           "category": { "type": "string", "enum": ["work", "family", "personal", "health"] },
-          "buffer_before": { "type": "number", "description": "분 단위 준비 시간" },
-          "buffer_after": { "type": "number", "description": "분 단위 정리 시간" }
+          "buffer_before": { "type": "number" },
+          "buffer_after": { "type": "number" }
         }
       }
     },
@@ -53,6 +53,22 @@
     "overall_tip": { "type": "string" },
     "overload_warning": { "type": ["string", "null"] },
     "recovery_suggestions": { "type": "array", "items": { "type": "string" } },
-    "rest_mode_tip": { "type": ["string", "null"] }
+    "rest_mode_tip": { "type": ["string", "null"] },
+    "neuro_tips": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "emoji", "label", "duration", "reason", "insert_after"],
+        "properties": {
+          "type": { "type": "string", "enum": ["rest", "exercise", "meditation", "reading", "journaling", "walk", "breathe", "nap", "hydrate"] },
+          "emoji": { "type": "string" },
+          "label": { "type": "string" },
+          "duration": { "type": "number" },
+          "reason": { "type": "string" },
+          "insert_after": { "type": "number" }
+        }
+      }
+    },
+    "daily_neuro_summary": { "type": "string" }
   }
 }

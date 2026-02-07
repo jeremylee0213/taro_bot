@@ -22,6 +22,16 @@ export interface SchedulePreset {
   items: Omit<ScheduleItem, 'id'>[];
 }
 
+// ─── Profile Types ───
+
+export interface UserProfile {
+  traits: string[];         // e.g. ['조용한 ADHD', 'HSP']
+  medications: string[];    // e.g. ['아토목신 10mg', '콘서타 27mg 오전']
+  preferences: string[];    // e.g. ['러닝', '명상', '독서']
+  sleepGoal: string;        // e.g. '23:00~07:00'
+  notes: string;            // free-text
+}
+
 // ─── Advisor Types ───
 
 export interface Advisor {
@@ -65,6 +75,17 @@ export interface AdvisorComment {
   target_schedule: string;
 }
 
+// ─── Neuroscience suggestion from AI ───
+
+export interface NeuroSuggestion {
+  type: 'rest' | 'exercise' | 'meditation' | 'reading' | 'journaling' | 'walk' | 'breathe' | 'nap' | 'hydrate';
+  emoji: string;
+  label: string;
+  duration: number; // minutes
+  reason: string;
+  insert_after: number; // schedule id after which to insert
+}
+
 export interface AnalysisResult {
   timeline: TimelineEntry[];
   briefings: BriefingEntry[];
@@ -73,6 +94,8 @@ export interface AnalysisResult {
   overload_warning: string | null;
   recovery_suggestions: string[];
   rest_mode_tip: string | null;
+  neuro_tips: NeuroSuggestion[];
+  daily_neuro_summary: string;
 }
 
 // ─── App State Types ───
@@ -94,6 +117,6 @@ export interface AnalysisProgress {
 export interface AppSettings {
   apiKey: string;
   model: string;
-  selectedAdvisors: string[]; // advisor ids
+  selectedAdvisors: string[];
   advisorTone: AdvisorTone;
 }

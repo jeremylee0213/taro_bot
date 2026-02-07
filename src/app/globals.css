@@ -2,71 +2,82 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Light Theme (Default) ─── */
+/* ─── Apple White + Blue Theme ─── */
 :root {
-  --color-bg: #f8f9fa;
+  --color-bg: #f5f5f7;
   --color-surface: #ffffff;
   --color-card: #ffffff;
-  --color-border: #e2e8f0;
-  --color-accent: #3b82f6;
-  --color-accent-hover: #2563eb;
-  --color-danger: #ef4444;
-  --color-warning: #f59e0b;
-  --color-success: #10b981;
-  --color-info: #6366f1;
-  --color-text: #1a1a2e;
-  --color-text-secondary: #475569;
-  --color-text-muted: #94a3b8;
-  --color-priority-high: #ef4444;
-  --color-priority-medium: #3b82f6;
-  --color-priority-low: #94a3b8;
-  --color-category-work: #3b82f6;
-  --color-category-family: #10b981;
-  --color-category-personal: #8b5cf6;
-  --color-category-health: #f59e0b;
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.05);
+  --color-border: #d2d2d7;
+  --color-accent: #007aff;
+  --color-accent-hover: #0056cc;
+  --color-accent-light: #e8f2ff;
+  --color-danger: #ff3b30;
+  --color-warning: #ff9500;
+  --color-success: #34c759;
+  --color-info: #5856d6;
+  --color-text: #1d1d1f;
+  --color-text-secondary: #6e6e73;
+  --color-text-muted: #aeaeb2;
+  --color-priority-high: #ff3b30;
+  --color-priority-medium: #007aff;
+  --color-priority-low: #aeaeb2;
+  --color-category-work: #007aff;
+  --color-category-family: #34c759;
+  --color-category-personal: #af52de;
+  --color-category-health: #ff9500;
+  --color-neuro: #5ac8fa;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+  --shadow-md: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,0.1);
+  --radius: 16px;
+  --radius-sm: 12px;
 }
 
 /* ─── Dark Theme ─── */
 [data-theme="dark"] {
-  --color-bg: #0f1117;
-  --color-surface: #1a1d2e;
-  --color-card: #1e2235;
-  --color-border: #2d3148;
-  --color-accent: #60a5fa;
-  --color-accent-hover: #93bbfd;
-  --color-danger: #f87171;
-  --color-warning: #fbbf24;
-  --color-success: #34d399;
-  --color-info: #818cf8;
-  --color-text: #e2e8f0;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted: #64748b;
-  --color-priority-high: #f87171;
-  --color-priority-medium: #60a5fa;
-  --color-priority-low: #64748b;
-  --color-category-work: #60a5fa;
-  --color-category-family: #34d399;
-  --color-category-personal: #a78bfa;
-  --color-category-health: #fbbf24;
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.4), 0 2px 4px -2px rgba(0,0,0,0.3);
-  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.5), 0 4px 6px -4px rgba(0,0,0,0.3);
+  --color-bg: #000000;
+  --color-surface: #1c1c1e;
+  --color-card: #2c2c2e;
+  --color-border: #38383a;
+  --color-accent: #0a84ff;
+  --color-accent-hover: #409cff;
+  --color-accent-light: #0a84ff1a;
+  --color-danger: #ff453a;
+  --color-warning: #ff9f0a;
+  --color-success: #30d158;
+  --color-info: #5e5ce6;
+  --color-text: #f5f5f7;
+  --color-text-secondary: #98989d;
+  --color-text-muted: #636366;
+  --color-priority-high: #ff453a;
+  --color-priority-medium: #0a84ff;
+  --color-priority-low: #636366;
+  --color-category-work: #0a84ff;
+  --color-category-family: #30d158;
+  --color-category-personal: #bf5af2;
+  --color-category-health: #ff9f0a;
+  --color-neuro: #64d2ff;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md: 0 2px 8px rgba(0,0,0,0.5);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,0.6);
 }
+
+* { box-sizing: border-box; }
 
 body {
   background-color: var(--color-bg);
   color: var(--color-text);
-  transition: background-color 0.2s, color 0.2s;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  font-size: 17px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s, color 0.3s;
 }
 
 /* ─── Scrollbar ─── */
 ::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: var(--color-bg); }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
 
 /* ─── Skeleton Shimmer ─── */
 @keyframes shimmer {
@@ -77,51 +88,133 @@ body {
   background: linear-gradient(90deg, var(--color-surface) 25%, var(--color-border) 50%, var(--color-surface) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
-  border-radius: 0.375rem;
+  border-radius: var(--radius-sm);
 }
 
-/* ─── Accordion transition ─── */
+/* ─── Accordion ─── */
 .accordion-content {
   overflow: hidden;
-  transition: max-height 0.3s ease, opacity 0.3s ease;
+  transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
 }
 
-/* ─── Timeline bar ─── */
-.timeline-bar {
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-.timeline-bar:hover {
-  filter: brightness(1.15);
-  transform: scaleY(1.1);
-}
-
-/* ─── Fade in animation ─── */
+/* ─── Fade in ─── */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.fade-in { animation: fadeIn 0.3s ease-out; }
+.fade-in { animation: fadeIn 0.4s ease-out; }
 
-/* ─── Button base ─── */
+/* ─── Apple-style card ─── */
+.apple-card {
+  background: var(--color-card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  border: none;
+}
+
+/* ─── Apple Button ─── */
 .btn-primary {
   background-color: var(--color-accent);
   color: #fff;
-  transition: background-color 0.15s;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: 17px;
+  transition: all 0.2s;
+  border: none;
 }
-.btn-primary:hover { background-color: var(--color-accent-hover); }
+.btn-primary:hover { background-color: var(--color-accent-hover); transform: scale(1.02); }
+.btn-primary:active { transform: scale(0.98); }
 
-/* ─── Responsive time picker ─── */
-input[type="time"] {
+.btn-secondary {
+  background: var(--color-surface);
+  color: var(--color-accent);
+  border: 1.5px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: 17px;
+  transition: all 0.2s;
+}
+.btn-secondary:hover { background: var(--color-accent-light); }
+
+/* ─── Block calendar ─── */
+.block-calendar {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 0;
+  position: relative;
+}
+.block-hour-label {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  text-align: right;
+  padding-right: 12px;
+  height: 60px;
+  line-height: 60px;
+}
+.block-hour-line {
+  border-top: 1px solid var(--color-border);
+  height: 60px;
+  position: relative;
+}
+.block-event {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  z-index: 2;
+}
+.block-event:hover {
+  transform: scale(1.02);
+  box-shadow: var(--shadow-lg);
+}
+.block-neuro {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  background: var(--color-neuro);
+  color: #000;
+  opacity: 0.85;
+  border: 2px dashed rgba(0,0,0,0.15);
+  z-index: 1;
+}
+
+/* ─── Neuro tip card ─── */
+.neuro-card {
+  background: linear-gradient(135deg, var(--color-accent-light), var(--color-surface));
+  border-radius: var(--radius);
+  border-left: 4px solid var(--color-neuro);
+}
+
+/* ─── Profile card ─── */
+.profile-card {
+  background: linear-gradient(135deg, var(--color-accent-light), var(--color-surface));
+  border-radius: var(--radius);
+}
+
+/* ─── Input styling ─── */
+input[type="text"], input[type="time"], textarea, select {
   font-family: inherit;
+  font-size: 17px;
   color: var(--color-text);
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
-  padding: 0.375rem 0.5rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
-input[type="time"]:focus {
+input:focus, textarea:focus, select:focus {
   outline: none;
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
 }
