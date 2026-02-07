@@ -1,0 +1,23 @@
+{
+  "name": "Daily CEO Planner",
+  "short_name": "CEO Planner",
+  "description": "하루 일정을 전략적으로 관리하세요",
+  "start_url": "/taro_bot/",
+  "scope": "/taro_bot/",
+  "display": "standalone",
+  "background_color": "#f8f9fa",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/taro_bot/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/taro_bot/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
