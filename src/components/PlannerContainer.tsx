@@ -43,6 +43,8 @@ const DEFAULT_PROFILE: UserProfile = {
 
 const ALL_ADVISORS: Advisor[] = [
   { id: 'em', name: '일론 머스크', nameEn: 'Elon Musk', initials: 'EM', description: '본질 집중, 과감한 결단', style: 'visionary' },
+  { id: 'yh', name: '유발 하라리', nameEn: 'Yuval Harari', initials: 'YH', description: '거시적 통찰, 인류 관점', style: 'philosopher' },
+  { id: 'ak', name: '알렉스 카프', nameEn: 'Alex Karp', initials: 'AK', description: '데이터 전략, 실전 결단', style: 'strategist' },
   { id: 'wb', name: '워런 버핏', nameEn: 'Warren Buffett', initials: 'WB', description: '장기적 가치, 인내', style: 'investor' },
   { id: 'sn', name: '사티아 나델라', nameEn: 'Satya Nadella', initials: 'SN', description: '성장 마인드셋, 공감', style: 'leader' },
   { id: 'jb', name: '제프 베조스', nameEn: 'Jeff Bezos', initials: 'JB', description: '고객 집중, Day 1 정신', style: 'founder' },
@@ -59,7 +61,7 @@ const ALL_ADVISORS: Advisor[] = [
   { id: 'by', name: '방시혁', nameEn: 'Bang Si-hyuk', initials: 'BY', description: '콘텐츠 직관, 글로벌', style: 'content' },
 ];
 
-const DEFAULT_ADVISOR_IDS = ['em', 'wb', 'sn'];
+const DEFAULT_ADVISOR_IDS = ['em', 'yh', 'ak'];
 
 function formatShareText(date: string, result: AnalysisResult): string {
   const lines = [
@@ -159,7 +161,7 @@ export function PlannerContainer() {
           'o1', 'o1-mini', 'o3', 'o3-mini', 'o4-mini',
         ].some((m) => model.startsWith(m));
 
-        const maxTokens = detailMode === 'short' ? 4096 : 8192;
+        const maxTokens = detailMode === 'short' ? 6144 : 8192;
         const isReasoningModel = ['o1', 'o3'].some((m) => model.startsWith(m));
 
         if (isReasoningModel) {
@@ -268,13 +270,6 @@ export function PlannerContainer() {
     try { await navigator.clipboard.writeText(text); } catch {}
     setSavedMsg('📋 공유 텍스트 복사됨! 카카오톡/이메일에 붙여넣기하세요');
     setTimeout(() => setSavedMsg(''), 3000);
-  }, [analysisResult, date]);
-
-  const handleShareTelegram = useCallback(async () => {
-    if (!analysisResult) return;
-    const text = formatShareText(date, analysisResult);
-    const encoded = encodeURIComponent(text);
-    window.open(`https://t.me/share/url?url=${encodeURIComponent('https://jeremylee0213.github.io/taro_bot/')}&text=${encoded}`, '_blank');
   }, [analysisResult, date]);
 
   const handleSaveImage = useCallback(async () => {
@@ -455,7 +450,7 @@ export function PlannerContainer() {
             {analysisResult && !isAnalyzing && (
               <>
                 {/* ═══ TOP ACTION BAR ═══ */}
-                <div className="flex flex-wrap gap-2" role="toolbar" aria-label="상단 액션">
+                <div className="flex gap-2" role="toolbar" aria-label="상단 액션">
                   <button onClick={handleSaveAdvice} className="flex-1 py-3 rounded-xl text-[14px] sm:text-[15px] font-bold focus-ring"
                     style={{ background: 'var(--color-accent)', color: '#fff' }} aria-label="분석 결과 저장">
                     💾 저장
@@ -467,6 +462,10 @@ export function PlannerContainer() {
                   <button onClick={handleShare} className="flex-1 py-3 rounded-xl text-[14px] sm:text-[15px] font-bold focus-ring"
                     style={{ background: 'var(--color-success)', color: '#fff' }} aria-label="결과 공유하기">
                     📤 공유
+                  </button>
+                  <button onClick={handleSaveImage} className="w-12 h-12 rounded-xl text-[18px] font-bold focus-ring flex items-center justify-center flex-shrink-0"
+                    style={{ background: 'var(--color-surface)', border: '1.5px solid var(--color-border)' }} aria-label="이미지 저장">
+                    📸
                   </button>
                 </div>
                 {savedMsg && (
@@ -515,22 +514,6 @@ export function PlannerContainer() {
                     energyData={analysisResult.energy_chart}
                   />
                 )}
-
-                {/* ═══ MIDDLE ACTION BAR ═══ */}
-                <div className="grid grid-cols-3 gap-2" role="toolbar" aria-label="중간 액션">
-                  <button onClick={handleSaveImage} className="py-3 rounded-xl text-[13px] sm:text-[14px] font-bold focus-ring"
-                    style={{ background: 'var(--color-surface)', color: 'var(--color-text-secondary)', border: '1.5px solid var(--color-border)' }} aria-label="전체 이미지 저장">
-                    📸 이미지 저장
-                  </button>
-                  <button onClick={handleCopyImage} className="py-3 rounded-xl text-[13px] sm:text-[14px] font-bold focus-ring"
-                    style={{ background: 'var(--color-surface)', color: 'var(--color-accent)', border: '1.5px solid var(--color-accent)' }} aria-label="이미지 클립보드 복사">
-                    📋 이미지 복사
-                  </button>
-                  <button onClick={handleShareTelegram} className="py-3 rounded-xl text-[13px] sm:text-[14px] font-bold focus-ring"
-                    style={{ background: '#0088cc', color: '#fff' }} aria-label="텔레그램으로 공유">
-                    ✈️ 텔레그램
-                  </button>
-                </div>
 
                 {/* ─── 4. Advisor Panel ─── */}
                 <AdvisorPanel
@@ -604,26 +587,22 @@ export function PlannerContainer() {
                 </div>
 
                 {/* ═══ BOTTOM ACTION BAR ═══ */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-2" role="toolbar" aria-label="하단 액션">
-                  <button onClick={handleSaveAdvice} className="py-3 rounded-xl text-[13px] sm:text-[14px] font-bold focus-ring"
+                <div className="flex gap-2 pt-2" role="toolbar" aria-label="하단 액션">
+                  <button onClick={handleSaveAdvice} className="flex-1 py-3 rounded-xl text-[13px] sm:text-[14px] font-bold focus-ring"
                     style={{ background: 'var(--color-accent)', color: '#fff' }} aria-label="저장">
                     💾 저장
                   </button>
-                  <button onClick={handleCopyAll} className="py-3 rounded-xl text-[13px] sm:text-[14px] font-bold focus-ring"
+                  <button onClick={handleCopyAll} className="flex-1 py-3 rounded-xl text-[13px] sm:text-[14px] font-bold focus-ring"
                     style={{ background: 'var(--color-surface)', color: 'var(--color-accent)', border: '1.5px solid var(--color-accent)' }} aria-label="텍스트 복사">
                     📋 복사
                   </button>
-                  <button onClick={handleSaveImage} className="py-3 rounded-xl text-[13px] sm:text-[14px] font-bold focus-ring"
-                    style={{ background: 'var(--color-surface)', color: 'var(--color-text-secondary)', border: '1.5px solid var(--color-border)' }} aria-label="이미지 저장">
+                  <button onClick={handleCopyImage} className="flex-1 py-3 rounded-xl text-[13px] sm:text-[14px] font-bold focus-ring"
+                    style={{ background: 'var(--color-surface)', color: 'var(--color-text-secondary)', border: '1.5px solid var(--color-border)' }} aria-label="이미지 복사">
                     📸 이미지
                   </button>
-                  <button onClick={handleShare} className="py-3 rounded-xl text-[13px] sm:text-[14px] font-bold focus-ring"
+                  <button onClick={handleShare} className="flex-1 py-3 rounded-xl text-[13px] sm:text-[14px] font-bold focus-ring"
                     style={{ background: 'var(--color-success)', color: '#fff' }} aria-label="공유하기">
                     📤 공유
-                  </button>
-                  <button onClick={handleShareTelegram} className="py-3 rounded-xl text-[13px] sm:text-[14px] font-bold focus-ring sm:col-span-1 col-span-2"
-                    style={{ background: '#0088cc', color: '#fff' }} aria-label="텔레그램으로 공유">
-                    ✈️ 텔레그램
                   </button>
                 </div>
               </>

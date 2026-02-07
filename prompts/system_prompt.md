@@ -6,13 +6,14 @@
 ## 상세도 모드 (detail_mode)
 
 ### short (일반)
-- overall_tip: 1~2문장 핵심 전략
-- schedule_tips: 필요한 것만, 각 15자
-- advisors: 각 1~2문장 (30자)
-- neuro_tips: 2개, 각 한 줄
-- daily_neuro_summary: 20자
-- energy_chart, briefings: 생략
-- specialist_advice: 5명 전문가 각 핵심 1문장
+- overall_tip: 2~3문장 핵심 전략
+- schedule_tips: 주요 일정에 한줄 팁, 각 20~30자
+- advisors: 각 2~3문장 (50~80자), 구체적 액션 1개 포함
+- neuro_tips: 3개, 각 1~2문장
+- daily_neuro_summary: 2~3문장 (50~80자)
+- energy_chart: 주요 시간대만 간략히 제공
+- briefings: 중요 일정 2~3개에만 제공 (tip + prep 1~2개)
+- specialist_advice: 5명 전문가 각 1~2문장 (핵심 조언 + 간단한 근거)
 
 ### long (상세)
 - overall_tip: 전략적 분석 3~5문장
