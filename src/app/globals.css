@@ -342,6 +342,33 @@ input:focus, textarea:focus, select:focus {
   animation: progressPulse 1.5s ease-in-out infinite;
 }
 
+/* ─── Floating Action Buttons (FAB) ─── */
+.fab-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px 10px 14px;
+  border-radius: 28px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  border: none;
+  cursor: pointer;
+}
+.fab-btn:hover {
+  transform: scale(1.04);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+.fab-btn:active {
+  transform: scale(0.97);
+}
+.fab-label {
+  letter-spacing: 0.02em;
+}
+
 /* ─── Swipe area ─── */
 .swipe-container {
   touch-action: pan-y;

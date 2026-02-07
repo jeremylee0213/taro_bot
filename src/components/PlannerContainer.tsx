@@ -117,6 +117,7 @@ export function PlannerContainer() {
   const [showSettings, setShowSettings] = useState(false);
   const [showAdvisorSettings, setShowAdvisorSettings] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [fabOpen, setFabOpen] = useState(false);
 
   const lastSchedulesRef = useRef<ScheduleItem[]>([]);
   const resultRef = useRef<HTMLDivElement>(null);
@@ -449,25 +450,6 @@ export function PlannerContainer() {
 
             {analysisResult && !isAnalyzing && (
               <>
-                {/* ═══ TOP ACTION BAR ═══ */}
-                <div className="flex gap-2" role="toolbar" aria-label="상단 액션">
-                  <button onClick={handleSaveAdvice} className="flex-1 py-3 rounded-xl text-[14px] sm:text-[15px] font-bold focus-ring"
-                    style={{ background: 'var(--color-accent)', color: '#fff' }} aria-label="분석 결과 저장">
-                    💾 저장
-                  </button>
-                  <button onClick={handleCopyAll} className="flex-1 py-3 rounded-xl text-[14px] sm:text-[15px] font-bold focus-ring"
-                    style={{ background: 'var(--color-surface)', color: 'var(--color-accent)', border: '1.5px solid var(--color-accent)' }} aria-label="전체 텍스트 복사">
-                    📋 복사
-                  </button>
-                  <button onClick={handleShare} className="flex-1 py-3 rounded-xl text-[14px] sm:text-[15px] font-bold focus-ring"
-                    style={{ background: 'var(--color-success)', color: '#fff' }} aria-label="결과 공유하기">
-                    📤 공유
-                  </button>
-                  <button onClick={handleSaveImage} className="w-12 h-12 rounded-xl text-[18px] font-bold focus-ring flex items-center justify-center flex-shrink-0"
-                    style={{ background: 'var(--color-surface)', border: '1.5px solid var(--color-border)' }} aria-label="이미지 저장">
-                    📸
-                  </button>
-                </div>
                 {savedMsg && (
                   <p className="text-center text-[14px] sm:text-[15px] font-semibold fade-in" role="status" style={{ color: 'var(--color-success)' }}>
                     {savedMsg}
@@ -586,25 +568,6 @@ export function PlannerContainer() {
 
                 </div>
 
-                {/* ═══ BOTTOM ACTION BAR ═══ */}
-                <div className="flex gap-2 pt-2" role="toolbar" aria-label="하단 액션">
-                  <button onClick={handleSaveAdvice} className="flex-1 py-3 rounded-xl text-[13px] sm:text-[14px] font-bold focus-ring"
-                    style={{ background: 'var(--color-accent)', color: '#fff' }} aria-label="저장">
-                    💾 저장
-                  </button>
-                  <button onClick={handleCopyAll} className="flex-1 py-3 rounded-xl text-[13px] sm:text-[14px] font-bold focus-ring"
-                    style={{ background: 'var(--color-surface)', color: 'var(--color-accent)', border: '1.5px solid var(--color-accent)' }} aria-label="텍스트 복사">
-                    📋 복사
-                  </button>
-                  <button onClick={handleCopyImage} className="flex-1 py-3 rounded-xl text-[13px] sm:text-[14px] font-bold focus-ring"
-                    style={{ background: 'var(--color-surface)', color: 'var(--color-text-secondary)', border: '1.5px solid var(--color-border)' }} aria-label="이미지 복사">
-                    📸 이미지
-                  </button>
-                  <button onClick={handleShare} className="flex-1 py-3 rounded-xl text-[13px] sm:text-[14px] font-bold focus-ring"
-                    style={{ background: 'var(--color-success)', color: '#fff' }} aria-label="공유하기">
-                    📤 공유
-                  </button>
-                </div>
               </>
             )}
           </>
@@ -632,6 +595,99 @@ export function PlannerContainer() {
         isOpen={showHistory}
         onClose={() => setShowHistory(false)}
       />
+
+      {/* ═══ FLOATING ACTION BUTTONS — 우측 하단 고정 ═══ */}
+      {analysisResult && !isAnalyzing && (
+        <div className="fixed bottom-6 right-4 sm:right-6 z-50 flex flex-col items-end gap-2">
+          {/* Expanded FAB items */}
+          {fabOpen && (
+            <div className="flex flex-col items-end gap-2 fade-in">
+              {/* 공유하기 */}
+              <button
+                onClick={() => { handleShare(); setFabOpen(false); }}
+                className="fab-btn focus-ring"
+                style={{ background: 'var(--color-success)' }}
+                aria-label="공유하기"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8" />
+                  <polyline points="16 6 12 2 8 6" />
+                  <line x1="12" y1="2" x2="12" y2="15" />
+                </svg>
+                <span className="fab-label">공유하기</span>
+              </button>
+
+              {/* 이미지 저장 */}
+              <button
+                onClick={() => { handleSaveImage(); setFabOpen(false); }}
+                className="fab-btn focus-ring"
+                style={{ background: 'var(--color-warning)' }}
+                aria-label="이미지 저장"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                <span className="fab-label">이미지 저장</span>
+              </button>
+
+              {/* 이미지 복사 */}
+              <button
+                onClick={() => { handleCopyImage(); setFabOpen(false); }}
+                className="fab-btn focus-ring"
+                style={{ background: 'var(--color-accent)' }}
+                aria-label="이미지 복사"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                </svg>
+                <span className="fab-label">이미지 복사</span>
+              </button>
+
+              {/* 라이브러리 저장 */}
+              <button
+                onClick={() => { handleSaveAdvice(); setFabOpen(false); }}
+                className="fab-btn focus-ring"
+                style={{ background: 'var(--color-text-secondary)' }}
+                aria-label="라이브러리 저장"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
+                </svg>
+                <span className="fab-label">라이브러리 저장</span>
+              </button>
+            </div>
+          )}
+
+          {/* Main FAB toggle */}
+          <button
+            onClick={() => setFabOpen(!fabOpen)}
+            className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg focus-ring transition-transform duration-200"
+            style={{
+              background: 'var(--color-accent)',
+              transform: fabOpen ? 'rotate(45deg)' : 'rotate(0deg)',
+            }}
+            aria-label={fabOpen ? '메뉴 닫기' : '액션 메뉴'}
+            aria-expanded={fabOpen}
+          >
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
+      {/* FAB backdrop */}
+      {fabOpen && (
+        <div
+          className="fixed inset-0 z-40"
+          style={{ background: 'rgba(0,0,0,0.15)' }}
+          onClick={() => setFabOpen(false)}
+        />
+      )}
     </div>
   );
 }
