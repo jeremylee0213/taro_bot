@@ -85,21 +85,22 @@ export function AdvisorPanel({
   if (advisors.length === 0) return null;
 
   return (
-    <div className="apple-card p-4 sm:p-6 space-y-4 fade-in">
+    <div className="apple-card p-4 sm:p-6 space-y-4 fade-in" role="region" aria-label="조언자 인사이트">
       <div className="flex items-center justify-between">
         <h3 className="text-[20px] sm:text-[22px] font-bold" style={{ color: 'var(--color-text)' }}>
           💬 조언자 인사이트
         </h3>
         <button
           onClick={onChangeAdvisors}
-          className="text-[15px] font-semibold px-3 py-1.5 rounded-xl"
+          className="text-[15px] font-semibold px-4 py-2.5 rounded-xl focus-ring"
           style={{ color: 'var(--color-accent)', background: 'var(--color-accent-light)' }}
+          aria-label="조언자 변경"
         >
           🔄 변경
         </button>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-4" role="list">
         {advisors.map((advisor, idx) => (
           <AdvisorRow key={idx} advisor={advisor} index={idx + 1} />
         ))}
@@ -133,10 +134,12 @@ function AdvisorRow({ advisor, index }: { advisor: AdvisorComment; index: number
         background: 'var(--color-surface)',
         borderLeft: `4px solid ${AVATAR_COLORS[(index - 1) % AVATAR_COLORS.length]}`,
       }}
+      role="listitem"
+      aria-label={`조언자 ${index}: ${advisor.name}`}
     >
       <div className="flex items-start gap-3">
         {/* Number + Emoji avatar */}
-        <div className="flex flex-col items-center gap-1 flex-shrink-0">
+        <div className="flex flex-col items-center gap-1 flex-shrink-0" aria-hidden="true">
           <div
             className="w-11 h-11 rounded-full flex items-center justify-center text-[20px]"
             style={{ backgroundColor: AVATAR_COLORS[(index - 1) % AVATAR_COLORS.length] + '20' }}
@@ -161,21 +164,21 @@ function AdvisorRow({ advisor, index }: { advisor: AdvisorComment; index: number
           </div>
         </div>
 
-        {/* Copy + Download */}
-        <div className="flex flex-col gap-1 flex-shrink-0">
+        {/* Copy + Download — 44px touch targets */}
+        <div className="flex flex-col gap-1.5 flex-shrink-0">
           <button
             onClick={handleCopy}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-[14px] transition-all hover:scale-110"
+            className="w-11 h-11 rounded-xl flex items-center justify-center text-[16px] transition-all hover:scale-110 focus-ring"
             style={{ background: 'var(--color-accent-light)' }}
-            title="클립보드 이미지 복사"
+            aria-label={`${advisor.name} 조언 클립보드 이미지 복사`}
           >
             📋
           </button>
           <button
             onClick={handleDownload}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-[14px] transition-all hover:scale-110"
+            className="w-11 h-11 rounded-xl flex items-center justify-center text-[16px] transition-all hover:scale-110 focus-ring"
             style={{ background: 'var(--color-accent-light)' }}
-            title="이미지 저장"
+            aria-label={`${advisor.name} 조언 이미지 저장`}
           >
             📸
           </button>

@@ -29,16 +29,24 @@ export function DateHeader({
   onOpenSettings,
 }: DateHeaderProps) {
   return (
-    <header className="apple-card px-5 py-4" style={{ borderRadius: 0, borderBottom: '1px solid var(--color-border)' }}>
+    <header className="apple-card px-5 py-4" style={{ borderRadius: 0, borderBottom: '1px solid var(--color-border)' }} role="banner">
       <div className="max-w-4xl mx-auto">
         {/* Top row */}
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-xl font-bold" style={{ color: 'var(--color-text)' }}>Daily CEO Planner</h1>
-          <div className="flex items-center gap-3">
-            <button onClick={onToggleTheme} className="text-xl p-1" aria-label="테마 전환">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onToggleTheme}
+              className="text-xl w-11 h-11 flex items-center justify-center rounded-xl focus-ring"
+              aria-label={theme === 'light' ? '다크 모드로 전환' : '라이트 모드로 전환'}
+            >
               {theme === 'light' ? '🌙' : '☀️'}
             </button>
-            <button onClick={onOpenSettings} className="text-xl p-1" aria-label="설정">
+            <button
+              onClick={onOpenSettings}
+              className="text-xl w-11 h-11 flex items-center justify-center rounded-xl focus-ring"
+              aria-label="설정 열기"
+            >
               ⚙️
             </button>
           </div>
@@ -54,8 +62,9 @@ export function DateHeader({
               type="date"
               value={date}
               onChange={(e) => onDateChange(e.target.value)}
-              className="text-[15px] px-2 py-1 rounded-lg"
+              className="text-[15px] px-3 py-2 rounded-lg focus-ring"
               style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
+              aria-label="날짜 선택"
             />
           </div>
 
@@ -64,8 +73,9 @@ export function DateHeader({
             <select
               value={energyLevel}
               onChange={(e) => onEnergyChange(e.target.value as EnergyLevel)}
-              className="text-[16px] px-3 py-1.5 rounded-lg"
+              className="text-[16px] px-3 py-2 rounded-lg focus-ring"
               style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
+              aria-label="오늘의 컨디션 선택"
             >
               {ENERGY_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>

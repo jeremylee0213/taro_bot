@@ -9,10 +9,10 @@ interface ScheduleTableProps {
   briefings?: BriefingEntry[];
 }
 
-const PRIORITY_BADGE: Record<string, { color: string; emoji: string; label: string }> = {
-  high: { color: 'var(--color-priority-high)', emoji: '🔴', label: '높음' },
-  medium: { color: 'var(--color-priority-medium)', emoji: '🔵', label: '보통' },
-  low: { color: 'var(--color-priority-low)', emoji: '⚪', label: '낮음' },
+const PRIORITY_BADGE: Record<string, { color: string; emoji: string; label: string; ariaLabel: string }> = {
+  high: { color: 'var(--color-priority-high)', emoji: '🔴', label: '높음', ariaLabel: '높은 중요도' },
+  medium: { color: 'var(--color-priority-medium)', emoji: '🔵', label: '보통', ariaLabel: '보통 중요도' },
+  low: { color: 'var(--color-priority-low)', emoji: '⚪', label: '낮음', ariaLabel: '낮은 중요도' },
 };
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -82,12 +82,12 @@ export function ScheduleTable({ timeline, scheduleTips, briefings }: ScheduleTab
   }
 
   return (
-    <div className="apple-card p-4 sm:p-6 fade-in">
+    <div className="apple-card p-4 sm:p-6 fade-in" role="region" aria-label="오늘의 일정과 조언">
       <h3 className="text-[20px] sm:text-[22px] font-bold mb-4" style={{ color: 'var(--color-text)' }}>
         📅 오늘의 일정 + 조언
       </h3>
 
-      <div className="space-y-3">
+      <div className="space-y-3" role="list">
         {timeline.map((entry, idx) => (
           <ScheduleRow
             key={entry.id}
@@ -132,6 +132,8 @@ function ScheduleRow({
         background: 'var(--color-surface)',
         borderLeft: `4px solid ${badge.color}`,
       }}
+      role="listitem"
+      aria-label={`${index}번 일정: ${entry.title}, ${entry.start}~${entry.end}, ${badge.ariaLabel}`}
     >
       {/* Row 1: Number + Time + Title + Buttons */}
       <div className="flex items-start gap-2">
@@ -139,14 +141,15 @@ function ScheduleRow({
         <span
           className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-bold text-white mt-0.5"
           style={{ background: badge.color }}
+          aria-hidden="true"
         >
           {index}
         </span>
 
         <div className="flex-1 min-w-0">
-          {/* Time + Category */}
+          {/* Time + Category + Priority label */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[14px]">
+            <span className="text-[14px]" aria-hidden="true">
               {CATEGORY_EMOJI[entry.category] || '📌'}
             </span>
             <span
@@ -155,7 +158,12 @@ function ScheduleRow({
             >
               {entry.start}~{entry.end}
             </span>
-            <span className="text-[13px]">{badge.emoji}</span>
+            <span
+              className="text-[11px] font-bold px-1.5 py-0.5 rounded-full"
+              style={{ background: badge.color, color: '#fff' }}
+            >
+              {badge.label}
+            </span>
           </div>
 
           {/* Title */}
@@ -195,21 +203,21 @@ function ScheduleRow({
           )}
         </div>
 
-        {/* Copy + Download buttons */}
-        <div className="flex flex-col gap-1 flex-shrink-0">
+        {/* Copy + Download buttons — 44px touch targets */}
+        <div className="flex flex-col gap-1.5 flex-shrink-0">
           <button
             onClick={handleCopyImage}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-[14px] transition-all hover:scale-110"
+            className="w-11 h-11 rounded-xl flex items-center justify-center text-[16px] transition-all hover:scale-110 focus-ring"
             style={{ background: 'var(--color-accent-light)' }}
-            title="클립보드 이미지 복사"
+            aria-label={`${entry.title} 클립보드 이미지 복사`}
           >
             📋
           </button>
           <button
             onClick={handleDownloadImage}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-[14px] transition-all hover:scale-110"
+            className="w-11 h-11 rounded-xl flex items-center justify-center text-[16px] transition-all hover:scale-110 focus-ring"
             style={{ background: 'var(--color-accent-light)' }}
-            title="이미지 저장"
+            aria-label={`${entry.title} 이미지 저장`}
           >
             📸
           </button>

@@ -131,9 +131,10 @@ export function QuickInput({ onAnalyze }: QuickInputProps) {
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder={"일정을 자유롭게 입력하세요\n예: 9시 투자자미팅, 11시 팀회의\n14시~16시 프로젝트, 18시 러닝"}
-        className="w-full resize-none min-h-[80px] max-h-[300px]"
+        className="w-full resize-none min-h-[80px] max-h-[300px] focus-ring"
         rows={3}
         style={{ fontSize: '17px', lineHeight: '1.6' }}
+        aria-label="오늘의 일정 입력"
       />
 
       {displayItems.length > 0 && (
@@ -158,8 +159,8 @@ export function QuickInput({ onAnalyze }: QuickInputProps) {
                 <span className="drag-handle text-[14px]" style={{ color: 'var(--color-text-muted)' }}>
                   ≡
                 </span>
-                <div
-                  className="w-1 h-8 rounded-full flex-shrink-0"
+                <span
+                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white flex-shrink-0"
                   style={{
                     background:
                       item.priority === 'high'
@@ -168,7 +169,9 @@ export function QuickInput({ onAnalyze }: QuickInputProps) {
                         ? 'var(--color-priority-medium)'
                         : 'var(--color-priority-low)',
                   }}
-                />
+                >
+                  {item.priority === 'high' ? '높음' : item.priority === 'medium' ? '보통' : '낮음'}
+                </span>
                 <span className="text-[15px]" style={{ color: 'var(--color-text-muted)' }}>
                   {item.startTime}~{item.endTime}
                 </span>
@@ -188,22 +191,33 @@ export function QuickInput({ onAnalyze }: QuickInputProps) {
         <button
           onClick={() => handleAnalyze(false)}
           disabled={displayItems.length === 0}
-          className="btn-primary py-4 disabled:opacity-40 text-[17px]"
+          className="btn-primary py-4 disabled:opacity-40 text-[17px] focus-ring"
+          aria-label={`일하는 날 분석 시작 (${displayItems.length}개 일정)`}
         >
           💼 일하는 날
         </button>
         <button
           onClick={() => handleAnalyze(true)}
-          className="btn-secondary py-4 text-[17px]"
+          className="btn-secondary py-4 text-[17px] focus-ring"
+          aria-label="쉬는 날 분석 시작"
         >
           🛋️ 쉬는 날
         </button>
       </div>
 
       {displayItems.length === 0 && text.trim().length === 0 && (
-        <p className="text-center text-[14px] pt-1" style={{ color: 'var(--color-text-muted)' }}>
-          시간 + 할 일을 입력하면 자동으로 인식됩니다
-        </p>
+        <div className="text-center py-6 px-4 rounded-xl" style={{ background: 'var(--color-surface)' }}>
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full mb-3" style={{ background: 'var(--color-accent-light)' }} aria-hidden="true">
+            <span className="text-[28px]">📋</span>
+          </div>
+          <p className="text-[15px] font-medium mb-2" style={{ color: 'var(--color-text)' }}>
+            일정을 입력해 보세요
+          </p>
+          <p className="text-[13px] leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
+            &quot;9시 투자자미팅, 11시 팀회의&quot; 같이<br />
+            시간 + 할 일을 입력하면 자동 인식됩니다
+          </p>
+        </div>
       )}
 
       {text.trim().length > 0 && displayItems.length === 0 && (

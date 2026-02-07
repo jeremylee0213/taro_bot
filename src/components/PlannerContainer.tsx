@@ -333,6 +333,7 @@ export function PlannerContainer() {
       onTouchStart={view === 'result' ? handleTouchStart : undefined}
       onTouchEnd={view === 'result' ? handleTouchEnd : undefined}
     >
+      <a href="#main-content" className="skip-link">본문으로 건너뛰기</a>
       <DateHeader
         date={date}
         onDateChange={setDate}
@@ -343,7 +344,7 @@ export function PlannerContainer() {
         onOpenSettings={() => setShowSettings(true)}
       />
 
-      <main className="max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-5">
+      <main id="main-content" className="max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-5">
         {/* ─── FORM VIEW ─── */}
         {view === 'form' && (
           <>
@@ -354,25 +355,29 @@ export function PlannerContainer() {
                 </span>
                 <button
                   onClick={() => setShowHistory(true)}
-                  className="text-[14px] font-semibold px-3 py-1.5 rounded-xl"
+                  className="text-[14px] font-semibold px-4 py-2.5 rounded-xl focus-ring"
                   style={{ color: 'var(--color-accent)', background: 'var(--color-accent-light)' }}
+                  aria-label="저장된 기록 열기"
                 >
                   📚 기록
                 </button>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="분석 모드 선택">
                 {(['short', 'medium'] as DetailMode[]).map((mode) => {
                   const isActive = mode === 'short' ? detailMode === 'short' : detailMode !== 'short';
                   return (
                     <button
                       key={mode}
                       onClick={() => setDetailMode(mode)}
-                      className="py-3.5 rounded-xl text-[16px] sm:text-[17px] font-bold transition-all"
+                      className="py-3.5 rounded-xl text-[16px] sm:text-[17px] font-bold transition-all focus-ring"
                       style={{
                         background: isActive ? 'var(--color-accent)' : 'var(--color-surface)',
                         color: isActive ? '#fff' : 'var(--color-text-secondary)',
                         border: isActive ? 'none' : '1px solid var(--color-border)',
                       }}
+                      role="radio"
+                      aria-checked={isActive}
+                      aria-label={mode === 'short' ? '일반 모드: 핵심 조언만 간결하게' : '상세 모드: 전문가별 상세 조언'}
                     >
                       {mode === 'short' ? '📌 일반' : '📖 상세'}
                     </button>
@@ -392,31 +397,37 @@ export function PlannerContainer() {
         {/* ─── RESULT VIEW ─── */}
         {view === 'result' && (
           <>
-            <div className="flex items-center justify-between">
+            <nav className="flex items-center justify-between" aria-label="결과 네비게이션">
               <button
                 onClick={() => { setView('form'); setError(null); }}
-                className="text-[17px] sm:text-[18px] font-bold"
+                className="text-[17px] sm:text-[18px] font-bold px-3 py-2.5 rounded-xl focus-ring"
                 style={{ color: 'var(--color-accent)' }}
+                aria-label="일정 입력으로 돌아가기"
               >
                 ← 돌아가기
               </button>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowHistory(true)}
-                  className="text-[14px] font-semibold px-2.5 py-1.5 rounded-xl"
+                  className="w-11 h-11 rounded-xl flex items-center justify-center text-[16px] font-semibold focus-ring"
                   style={{ color: 'var(--color-accent)', background: 'var(--color-accent-light)' }}
+                  aria-label="저장된 기록 열기"
                 >
                   📚
                 </button>
               </div>
-            </div>
+            </nav>
 
             {isAnalyzing && <AnalysisSkeleton progress={progress} streamText={streamText || undefined} />}
 
             {error && (
-              <div className="apple-card p-5 fade-in" style={{ borderLeft: '4px solid var(--color-danger)' }}>
+              <div className="apple-card p-5 fade-in" style={{ borderLeft: '4px solid var(--color-danger)' }} role="alert">
                 <p className="text-[17px] sm:text-[18px] mb-3" style={{ color: 'var(--color-text)' }}>{error}</p>
-                <button onClick={() => runAnalysis(lastSchedulesRef.current)} className="btn-primary px-5 py-2.5">
+                <button
+                  onClick={() => runAnalysis(lastSchedulesRef.current)}
+                  className="btn-primary px-5 py-3 focus-ring"
+                  aria-label="분석 다시 시도"
+                >
                   🔄 다시 시도
                 </button>
               </div>
@@ -425,21 +436,24 @@ export function PlannerContainer() {
             {analysisResult && !isAnalyzing && (
               <div ref={resultRef} className="space-y-5 fade-in">
 
-                {/* ─── 1. OVERALL TIP ─── */}
+                {/* ─── 1. OVERALL TIP — Primary card, highest visual weight ─── */}
                 {analysisResult.overall_tip && (
                   <div
-                    className="apple-card p-5 sm:p-7"
+                    className="apple-card p-6 sm:p-8"
                     style={{
-                      borderLeft: '5px solid var(--color-accent)',
+                      borderLeft: '6px solid var(--color-accent)',
                       background: 'linear-gradient(135deg, var(--color-accent-light), var(--color-card))',
+                      boxShadow: 'var(--shadow-lg)',
                     }}
+                    role="region"
+                    aria-label="오늘의 핵심 전략"
                   >
-                    <p className="text-[12px] sm:text-[13px] font-bold mb-2 tracking-wide" style={{ color: 'var(--color-accent)', letterSpacing: '0.05em' }}>
+                    <p className="text-[13px] sm:text-[14px] font-bold mb-3 tracking-wide" style={{ color: 'var(--color-accent)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                       💡 오늘의 핵심
                     </p>
                     <p
-                      className="text-[18px] sm:text-[22px] font-bold whitespace-pre-line"
-                      style={{ color: 'var(--color-text)', lineHeight: '1.7' }}
+                      className="text-[20px] sm:text-[26px] font-bold whitespace-pre-line"
+                      style={{ color: 'var(--color-text)', lineHeight: '1.6' }}
                     >
                       {analysisResult.overall_tip.replace(/([.!?])\s+/g, '$1\n')}
                     </p>
@@ -467,27 +481,27 @@ export function PlannerContainer() {
                   onChangeAdvisors={() => setShowAdvisorSettings(true)}
                 />
 
-                {/* ─── 5. Specialist Advice ─── */}
+                {/* ─── 5. Specialist Advice — secondary visual weight ─── */}
                 {analysisResult.specialist_advice && analysisResult.specialist_advice.length > 0 && (
-                  <div className="apple-card p-4 sm:p-6 fade-in">
-                    <h3 className="text-[20px] sm:text-[22px] font-bold mb-4" style={{ color: 'var(--color-text)' }}>
+                  <div className="apple-card p-4 sm:p-6 fade-in" style={{ boxShadow: 'var(--shadow-sm)' }} role="region" aria-label="전문가 인사이트">
+                    <h3 className="text-[17px] sm:text-[19px] font-bold mb-3" style={{ color: 'var(--color-text-secondary)' }}>
                       🏥 전문가 인사이트
                     </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {analysisResult.specialist_advice.map((spec, i) => (
                         <div
                           key={i}
-                          className="rounded-xl p-4"
+                          className="rounded-xl p-3.5"
                           style={{
                             background: 'var(--color-surface)',
-                            borderLeft: '4px solid var(--color-accent)',
+                            borderLeft: '3px solid var(--color-border)',
                           }}
                         >
-                          <p className="text-[15px] sm:text-[16px] font-bold mb-2" style={{ color: 'var(--color-text)' }}>
+                          <p className="text-[14px] sm:text-[15px] font-bold mb-1.5" style={{ color: 'var(--color-text)' }}>
                             {spec.emoji} {spec.role}
                           </p>
                           <p
-                            className="text-[14px] sm:text-[15px] leading-[1.7] whitespace-pre-line"
+                            className="text-[13px] sm:text-[14px] leading-[1.7] whitespace-pre-line"
                             style={{ color: 'var(--color-text-secondary)' }}
                           >
                             {spec.advice.replace(/([.!?])\s+/g, '$1\n')}
@@ -530,27 +544,31 @@ export function PlannerContainer() {
                   </div>
                 )}
 
-                {/* ─── Action Buttons ─── */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <button onClick={handleSaveAdvice} className="py-3 rounded-xl text-[14px] sm:text-[15px] font-bold"
-                    style={{ background: 'var(--color-accent)', color: '#fff' }}>
+                {/* ─── Action Buttons — min 44px height ─── */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2" role="toolbar" aria-label="결과 액션">
+                  <button onClick={handleSaveAdvice} className="py-3.5 rounded-xl text-[14px] sm:text-[15px] font-bold focus-ring"
+                    style={{ background: 'var(--color-accent)', color: '#fff' }}
+                    aria-label="분석 결과 저장">
                     💾 저장
                   </button>
-                  <button onClick={handleCopyAll} className="py-3 rounded-xl text-[14px] sm:text-[15px] font-bold"
-                    style={{ background: 'var(--color-surface)', color: 'var(--color-accent)', border: '1.5px solid var(--color-accent)' }}>
+                  <button onClick={handleCopyAll} className="py-3.5 rounded-xl text-[14px] sm:text-[15px] font-bold focus-ring"
+                    style={{ background: 'var(--color-surface)', color: 'var(--color-accent)', border: '1.5px solid var(--color-accent)' }}
+                    aria-label="전체 텍스트 복사">
                     📋 복사
                   </button>
-                  <button onClick={handleSaveImage} className="py-3 rounded-xl text-[14px] sm:text-[15px] font-bold"
-                    style={{ background: 'var(--color-surface)', color: 'var(--color-text-secondary)', border: '1.5px solid var(--color-border)' }}>
+                  <button onClick={handleSaveImage} className="py-3.5 rounded-xl text-[14px] sm:text-[15px] font-bold focus-ring"
+                    style={{ background: 'var(--color-surface)', color: 'var(--color-text-secondary)', border: '1.5px solid var(--color-border)' }}
+                    aria-label="전체 결과 이미지로 저장">
                     📸 전체 이미지
                   </button>
-                  <button onClick={handleShare} className="py-3 rounded-xl text-[14px] sm:text-[15px] font-bold"
-                    style={{ background: 'var(--color-success)', color: '#fff' }}>
+                  <button onClick={handleShare} className="py-3.5 rounded-xl text-[14px] sm:text-[15px] font-bold focus-ring"
+                    style={{ background: 'var(--color-success)', color: '#fff' }}
+                    aria-label="결과 공유하기">
                     📤 공유하기
                   </button>
                 </div>
                 {savedMsg && (
-                  <p className="text-center text-[14px] sm:text-[15px] font-semibold fade-in" style={{ color: 'var(--color-success)' }}>
+                  <p className="text-center text-[14px] sm:text-[15px] font-semibold fade-in" role="status" style={{ color: 'var(--color-success)' }}>
                     {savedMsg}
                   </p>
                 )}
@@ -593,8 +611,12 @@ export function PlannerContainer() {
                   </p>
                 </div>
 
-                <button onClick={handleSaveSummaryImage} className="w-full py-3.5 rounded-xl text-[15px] sm:text-[16px] font-bold"
-                  style={{ background: 'var(--color-accent)', color: '#fff' }}>
+                <button
+                  onClick={handleSaveSummaryImage}
+                  className="w-full py-3.5 rounded-xl text-[15px] sm:text-[16px] font-bold focus-ring"
+                  style={{ background: 'var(--color-accent)', color: '#fff' }}
+                  aria-label="핵심 카드 이미지로 저장"
+                >
                   📸 핵심 카드 이미지 저장
                 </button>
               </div>

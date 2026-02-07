@@ -299,6 +299,49 @@ input:focus, textarea:focus, select:focus {
 .dragging { opacity: 0.5; transform: scale(0.98); }
 .drag-over { border-top: 2px solid var(--color-accent) !important; }
 
+/* ─── Focus ring (accessibility) ─── */
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-accent), 0 0 0 5px rgba(0, 122, 255, 0.2);
+}
+
+/* ─── Skip to main content (accessibility) ─── */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--color-accent);
+  color: #fff;
+  padding: 8px 16px;
+  z-index: 100;
+  font-weight: 600;
+  border-radius: 0 0 8px 0;
+  transition: top 0.2s;
+}
+.skip-link:focus {
+  top: 0;
+}
+
+/* ─── Reduced motion ─── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .fade-in { animation: none; }
+  .skeleton { animation: none; }
+}
+
+/* ─── Progress bar animation ─── */
+@keyframes progressPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+.progress-bar-animated {
+  animation: progressPulse 1.5s ease-in-out infinite;
+}
+
 /* ─── Swipe area ─── */
 .swipe-container {
   touch-action: pan-y;

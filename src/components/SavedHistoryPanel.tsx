@@ -75,12 +75,15 @@ export function SavedHistoryPanel({ isOpen, onClose }: SavedHistoryPanelProps) {
     <>
       {/* Backdrop */}
       {isOpen && (
-        <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
+        <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} aria-hidden="true" />
       )}
 
       {/* Side panel */}
       <div
         className="fixed top-0 right-0 z-50 h-full flex flex-col transition-transform duration-300"
+        role="dialog"
+        aria-modal="true"
+        aria-label="저장된 조언 목록"
         style={{
           width: 'min(380px, 85vw)',
           background: 'var(--color-card)',
@@ -96,8 +99,9 @@ export function SavedHistoryPanel({ isOpen, onClose }: SavedHistoryPanelProps) {
           </h2>
           <button
             onClick={onClose}
-            className="text-[22px] p-1"
+            className="text-[22px] w-11 h-11 flex items-center justify-center rounded-xl focus-ring"
             style={{ color: 'var(--color-text-muted)' }}
+            aria-label="저장 패널 닫기"
           >
             ✕
           </button>
@@ -106,14 +110,26 @@ export function SavedHistoryPanel({ isOpen, onClose }: SavedHistoryPanelProps) {
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {items.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-[32px] mb-3">📭</p>
-              <p className="text-[16px] font-medium" style={{ color: 'var(--color-text-muted)' }}>
-                저장된 조언이 없습니다
+            <div className="text-center py-16 px-4">
+              <div className="mb-6" aria-hidden="true">
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full mb-3" style={{ background: 'var(--color-accent-light)' }}>
+                  <span className="text-[40px]">📭</span>
+                </div>
+              </div>
+              <p className="text-[18px] font-bold mb-2" style={{ color: 'var(--color-text)' }}>
+                아직 저장된 조언이 없어요
               </p>
-              <p className="text-[14px] mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                분석 결과에서 💾 저장 버튼을 눌러주세요
+              <p className="text-[14px] mb-6 leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
+                일정을 분석한 후<br />💾 저장 버튼을 눌러 보관하세요
               </p>
+              <button
+                onClick={onClose}
+                className="px-6 py-3 rounded-xl text-[15px] font-bold"
+                style={{ background: 'var(--color-accent)', color: '#fff' }}
+                aria-label="일정 분석하러 가기"
+              >
+                일정 분석하러 가기
+              </button>
             </div>
           )}
 
@@ -130,15 +146,17 @@ export function SavedHistoryPanel({ isOpen, onClose }: SavedHistoryPanelProps) {
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleCopy(item)}
-                    className="text-[13px] px-2 py-1 rounded-lg"
+                    className="w-11 h-11 rounded-xl flex items-center justify-center text-[16px] focus-ring"
                     style={{ color: 'var(--color-accent)', background: 'var(--color-accent-light)' }}
+                    aria-label={`${item.date} 조언 복사`}
                   >
                     📋
                   </button>
                   <button
                     onClick={() => handleDelete(item.id)}
-                    className="text-[13px] px-2 py-1 rounded-lg"
+                    className="w-11 h-11 rounded-xl flex items-center justify-center text-[16px] focus-ring"
                     style={{ color: 'var(--color-danger)' }}
+                    aria-label={`${item.date} 조언 삭제`}
                   >
                     🗑️
                   </button>
