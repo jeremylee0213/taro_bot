@@ -1,13 +1,5 @@
-import { ContextVariables } from '@/types/session';
-import {
-  SYSTEM_PROMPT,
-  CONTEXT_TEMPLATE,
-  GOLDEN_EXAMPLES,
-  OUTPUT_SCHEMA,
-  PERSONA_POOL,
-  TAROT_DECK,
-  EMOJI_DESIGN_SYSTEM,
-} from './prompt-data';
+import { ScheduleItem, EnergyLevel, Emotion, AdvisorTone, Advisor } from '@/types/schedule';
+import { SYSTEM_PROMPT, OUTPUT_SCHEMA, ADVISOR_POOL } from './prompt-data';
 
 let cachedSystemPrompt: string | null = null;
 
@@ -16,13 +8,9 @@ function getSystemPromptBase(): string {
 
   cachedSystemPrompt = [
     SYSTEM_PROMPT,
-    '\n\n---\n\n## Reference: Persona Pool\n',
-    PERSONA_POOL,
-    '\n\n---\n\n## Reference: Tarot Deck\n',
-    TAROT_DECK,
-    '\n\n---\n\n## Reference: Emoji Design System\n',
-    EMOJI_DESIGN_SYSTEM,
-    '\n\n---\n\n## Output Format\n',
+    '\n\n---\n\n## Reference: Advisor Pool\n',
+    ADVISOR_POOL,
+    '\n\n---\n\n## Output JSON Schema\n',
     '반드시 아래 JSON 스키마에 맞춰 순수 JSON으로만 응답하십시오. 마크다운이나 코드블록(```)으로 감싸지 마십시오.\n\n',
     OUTPUT_SCHEMA,
   ].join('');
@@ -30,86 +18,71 @@ function getSystemPromptBase(): string {
   return cachedSystemPrompt;
 }
 
-function fillContextTemplate(context: ContextVariables): string {
-  const replacements: Record<string, string> = {
-    '{{user_age}}': String(context.user_age),
-    '{{spouse_age}}': String(context.spouse_age),
-    '{{child_age}}': String(context.child_age),
-    '{{child_name}}': context.child_name,
-    '{{time_period}}': context.time_period,
-    '{{session_count}}': String(context.session_count),
-    '{{consecutive_days}}': String(context.consecutive_days),
-    '{{user_stage}}': context.user_stage,
-    '{{monthly_count}}': String(context.monthly_count),
-    '{{recent_cards_7d}}': JSON.stringify(context.recent_cards_7d),
-    '{{recent_guests}}': JSON.stringify(context.recent_guests),
-    '{{monthly_themes}}': JSON.stringify(context.monthly_themes),
-    '{{monthly_card_freq}}': JSON.stringify(context.monthly_card_freq),
-    '{{recent_feedback}}': context.recent_feedback,
-    '{{preferred_persona}}': context.preferred_persona,
+function formatScheduleList(schedules: ScheduleItem[]): string {
+  if (schedules.length === 0) return '(일정 없음)';
+
+  const emotionMap: Record<Emotion, string> = {
+    excited: '기대',
+    nervous: '긴장',
+    burdened: '부담',
+    normal: '평범',
   };
 
-  let filled = CONTEXT_TEMPLATE;
-  for (const [key, value] of Object.entries(replacements)) {
-    filled = filled.replaceAll(key, value);
-  }
-  return filled;
+  const sorted = [...schedules].sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+  return sorted
+    .map(
+      (s, i) =>
+        `${i + 1}. ${s.startTime}~${s.endTime} | ${s.title} | 중요도: ${s.priority} | 카테고리: ${s.category} | 감정: ${emotionMap[s.emotion]}`
+    )
+    .join('\n');
 }
 
-function selectGoldenExamples(sessionCount: number): string {
-  const sections = GOLDEN_EXAMPLES.split(/^## 예시 \d+:/m).filter(Boolean);
-
-  const selected: string[] = [];
-
-  // Example 1 (Quick) - always include for format reference
-  if (sections[0]) selected.push('## 예시 1:' + sections[0]);
-
-  // If first session, include onboarding example
-  if (sessionCount === 1 && sections[3]) {
-    selected.push('## 예시 4:' + sections[3]);
-  }
-  // Include crisis example for safety
-  else if (sections[4]) {
-    selected.push('## 예시 5:' + sections[4]);
-  }
-
-  return selected.join('\n\n---\n\n');
+interface AssembleParams {
+  schedules: ScheduleItem[];
+  energyLevel: EnergyLevel;
+  advisors: Advisor[];
+  advisorTone: AdvisorTone;
+  isRestDay?: boolean;
 }
 
-export interface ConversationMessage {
-  role: 'user' | 'assistant';
-  content: string;
-}
+export function assemblePrompt(params: AssembleParams): { role: string; content: string }[] {
+  const { schedules, energyLevel, advisors, advisorTone, isRestDay } = params;
 
-export function assemblePrompt(
-  userMessage: string,
-  context: ContextVariables,
-  history: ConversationMessage[] = []
-): { role: string; content: string }[] {
-  const systemBase = getSystemPromptBase();
-  const contextFilled = fillContextTemplate(context);
-  const examples = selectGoldenExamples(context.session_count);
+  const systemContent = getSystemPromptBase();
 
-  const systemContent = [
-    systemBase,
-    '\n\n---\n\n## Current Session Context\n',
-    contextFilled,
-    '\n\n---\n\n## Few-shot Examples (참고용)\n',
-    examples,
-  ].join('');
+  const energyLabels: Record<EnergyLevel, string> = {
+    high: '좋음 (에너지 높음)',
+    medium: '보통',
+    low: '낮음 (피로)',
+  };
 
-  const messages: { role: string; content: string }[] = [
+  const toneLabels: Record<AdvisorTone, string> = {
+    encouraging: '격려 모드 — 동기부여, 긍정적',
+    direct: '직설 모드 — 핵심만, 날카롭게',
+  };
+
+  const advisorNames = advisors.map((a) => `${a.name} (${a.initials})`).join(', ');
+
+  let userContent = `## 오늘의 일정 분석 요청
+
+### 에너지 레벨
+${energyLabels[energyLevel]}
+
+### 조언자
+${advisorNames}
+톤: ${toneLabels[advisorTone]}
+
+### 일정 목록
+${formatScheduleList(schedules)}
+`;
+
+  if (isRestDay) {
+    userContent += '\n### 모드\n쉬는 날 모드 — 리커버리 전략을 제안해주세요.\n';
+  }
+
+  return [
     { role: 'system', content: systemContent },
+    { role: 'user', content: userContent },
   ];
-
-  // Add conversation history (capped at 10 turns)
-  const recentHistory = history.slice(-10);
-  for (const msg of recentHistory) {
-    messages.push({ role: msg.role, content: msg.content });
-  }
-
-  // Add current user message
-  messages.push({ role: 'user', content: userMessage });
-
-  return messages;
 }

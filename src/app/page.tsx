@@ -1,5 +1,5 @@
-import { ChatContainer } from '@/components/ChatContainer';
+import { PlannerContainer } from '@/components/PlannerContainer';
 
 export default function Home() {
-  return <ChatContainer />;
+  return <PlannerContainer />;
 }

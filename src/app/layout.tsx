@@ -1,9 +1,25 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Daily Tarot Mirror',
-  description: '매일 타로 카드 한 장으로 전략적 하루를 시작하세요',
+  title: 'Daily CEO Planner',
+  description: '하루 일정을 전략적으로 관리하세요 — AI 브리핑과 조언자의 인사이트',
+  manifest: '/taro_bot/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'CEO Planner',
+  },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#f8f9fa' },
+    { media: '(prefers-color-scheme: dark)', color: '#0f1117' },
+  ],
 };
 
 export default function RootLayout({
@@ -12,7 +28,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ko">
+    <html lang="ko" suppressHydrationWarning>
+      <head>
+        <link rel="apple-touch-icon" href="/taro_bot/icon-192.png" />
+      </head>
       <body className="min-h-screen bg-bg text-text-primary antialiased">
         {children}
       </body>

@@ -46,8 +46,8 @@ export function SettingsModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-card border border-surface rounded-xl w-[90%] max-w-md p-6 space-y-5">
-        <h2 className="text-base font-bold text-accent-gold">설정</h2>
+      <div className="bg-card border border-border rounded-xl w-[90%] max-w-md p-6 space-y-5">
+        <h2 className="text-base font-bold text-text-primary">설정</h2>
 
         {/* API Key */}
         <div className="space-y-2">
@@ -57,7 +57,7 @@ export function SettingsModal({
             value={keyInput}
             onChange={(e) => setKeyInput(e.target.value)}
             placeholder="sk-..."
-            className="w-full bg-surface border border-surface rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-purple"
+            className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent"
           />
           <p className="text-[10px] text-text-muted">
             키는 브라우저에만 저장되며 서버에 저장되지 않습니다.
@@ -70,7 +70,7 @@ export function SettingsModal({
           <select
             value={selectedModel}
             onChange={(e) => setSelectedModel(e.target.value)}
-            className="w-full bg-surface border border-surface rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-purple"
+            className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent"
           >
             {MODEL_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -90,7 +90,7 @@ export function SettingsModal({
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 text-xs bg-accent-purple text-white rounded-lg hover:bg-accent-purple/80 transition-colors"
+            className="btn-primary px-4 py-2 text-xs rounded-lg"
           >
             저장
           </button>
