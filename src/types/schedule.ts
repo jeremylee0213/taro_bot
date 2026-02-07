@@ -6,6 +6,7 @@ export type EnergyLevel = 'high' | 'medium' | 'low';
 export type Category = 'work' | 'family' | 'personal' | 'health';
 export type AdvisorTone = 'encouraging' | 'direct';
 export type AnalysisView = 'form' | 'result';
+export type DetailMode = 'short' | 'medium' | 'long';
 
 export interface ScheduleItem {
   id: string;
@@ -72,6 +73,19 @@ export interface NeuroSuggestion {
   reason: string;
 }
 
+export interface EnergyBlock {
+  hour: number;
+  level: number; // 1-10
+  label: string; // e.g. "콘서타 피크"
+}
+
+export interface BriefingEntry {
+  id: number;
+  title: string;
+  tip: string;
+  prep: string[];
+}
+
 export interface AnalysisResult {
   timeline: TimelineEntry[];
   schedule_tips: ScheduleTip[];
@@ -79,6 +93,8 @@ export interface AnalysisResult {
   overall_tip: string;
   neuro_tips: NeuroSuggestion[];
   daily_neuro_summary: string;
+  energy_chart?: EnergyBlock[];
+  briefings?: BriefingEntry[];
 }
 
 // ─── App State Types ───

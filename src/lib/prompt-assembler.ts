@@ -1,4 +1,4 @@
-import { ScheduleItem, EnergyLevel, AdvisorTone, Advisor, UserProfile } from '@/types/schedule';
+import { ScheduleItem, EnergyLevel, AdvisorTone, Advisor, UserProfile, DetailMode } from '@/types/schedule';
 import { SYSTEM_PROMPT, OUTPUT_SCHEMA, ADVISOR_POOL } from './prompt-data';
 
 let cachedSystemPrompt: string | null = null;
@@ -36,23 +36,27 @@ function formatProfile(profile: UserProfile): string {
   return lines.join('\n');
 }
 
-interface AssembleParams {
+export interface AssembleParams {
   schedules: ScheduleItem[];
   energyLevel: EnergyLevel;
   advisors: Advisor[];
   advisorTone: AdvisorTone;
   profile: UserProfile;
+  detailMode: DetailMode;
   isRestDay?: boolean;
 }
 
 export function assemblePrompt(params: AssembleParams): { role: string; content: string }[] {
-  const { schedules, energyLevel, advisors, advisorTone, profile, isRestDay } = params;
+  const { schedules, energyLevel, advisors, advisorTone, profile, detailMode, isRestDay } = params;
 
   const systemContent = getSystemPromptBase();
   const advisorNames = advisors.map((a) => `${a.name} (${a.initials})`).join(', ');
 
-  let userContent = `## 분석 요청
+  const modeLabel = { short: '짧게', medium: '중간', long: '길게' }[detailMode];
 
+  const userContent = `## 분석 요청
+
+detail_mode: ${detailMode} (${modeLabel})
 프로필: ${formatProfile(profile)}
 컨디션: ${energyLevel}
 조언자: ${advisorNames} (${advisorTone === 'encouraging' ? '격려' : '직설'})
@@ -60,7 +64,7 @@ ${isRestDay ? '모드: 쉬는 날\n' : ''}
 일정:
 ${formatScheduleList(schedules)}
 
-**핵심 지시**: 짧게. 모든 항목 한 줄로. schedule_tips는 꼭 필요한 것만.`;
+**지시**: detail_mode="${detailMode}" 규칙을 정확히 따르세요.${detailMode !== 'short' ? ' energy_chart와 briefings를 반드시 포함하세요.' : ''}`;
 
   return [
     { role: 'system', content: systemContent },

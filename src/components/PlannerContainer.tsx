@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import {
   AnalysisResult,
   AnalysisProgress,
@@ -9,6 +9,7 @@ import {
   Advisor,
   UserProfile,
   ScheduleItem,
+  DetailMode,
 } from '@/types/schedule';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useTheme } from '@/hooks/useTheme';
@@ -23,6 +24,8 @@ import { DateHeader } from './DateHeader';
 import { QuickInput } from './QuickInput';
 import { AnalysisSkeleton } from './AnalysisSkeleton';
 import { BlockCalendar } from './BlockCalendar';
+import { EnergyChart } from './EnergyChart';
+import { BriefingList } from './BriefingList';
 import { AdvisorPanel } from './AdvisorPanel';
 import { AdvisorSettings } from './AdvisorSettings';
 import { ShareButton } from './ShareButton';
@@ -57,6 +60,12 @@ const ALL_ADVISORS: Advisor[] = [
 
 const DEFAULT_ADVISOR_IDS = ['em', 'wb', 'sn'];
 
+const MODE_LABELS: Record<DetailMode, string> = {
+  short: '짧게',
+  medium: '중간',
+  long: '길게',
+};
+
 export function PlannerContainer() {
   const [date, setDate] = useState(getToday());
   const [theme, toggleTheme] = useTheme();
@@ -67,6 +76,7 @@ export function PlannerContainer() {
   const [selectedAdvisorIds, setSelectedAdvisorIds] = useLocalStorage<string[]>('ceo-planner-advisors', DEFAULT_ADVISOR_IDS);
   const [advisorTone, setAdvisorTone] = useLocalStorage<AdvisorTone>('ceo-planner-tone', 'encouraging');
   const [profile, setProfile] = useLocalStorage<UserProfile>('ceo-planner-profile', DEFAULT_PROFILE);
+  const [detailMode, setDetailMode] = useLocalStorage<DetailMode>('ceo-planner-detail-mode', 'medium');
 
   // Schedule store
   const {
@@ -85,25 +95,25 @@ export function PlannerContainer() {
   const [showSettings, setShowSettings] = useState(false);
   const [showAdvisorSettings, setShowAdvisorSettings] = useState(false);
 
+  // Store last-used schedules for advisor re-generation
+  const lastSchedulesRef = useRef<ScheduleItem[]>([]);
+
   const { getCached, setCache } = useAnalysisCache();
 
   const selectedAdvisors = ALL_ADVISORS.filter((a) => selectedAdvisorIds.includes(a.id));
 
   // ─── Analysis handler ───
   const runAnalysis = useCallback(
-    async (items: ScheduleItem[]) => {
+    async (items: ScheduleItem[], advisorIds?: string[]) => {
       if (!apiKey) { setShowSettings(true); return; }
 
       const restMode = items.length === 0;
       const schedules = items;
       updateSchedules(() => schedules);
+      lastSchedulesRef.current = schedules;
 
-      const cached = getCached(schedules, energyLevel, selectedAdvisorIds);
-      if (cached && !restMode) {
-        setAnalysisResult(cached);
-        setView('result');
-        return;
-      }
+      const idsToUse = advisorIds || selectedAdvisorIds;
+      const advisorsToUse = ALL_ADVISORS.filter((a) => idsToUse.includes(a.id));
 
       setIsAnalyzing(true);
       setError(null);
@@ -113,9 +123,10 @@ export function PlannerContainer() {
         setProgress({ step: 1, total: 3, label: '준비 중...' });
         const messages = assemblePrompt({
           schedules, energyLevel,
-          advisors: selectedAdvisors,
+          advisors: advisorsToUse,
           advisorTone,
           profile,
+          detailMode,
           isRestDay: restMode,
         });
 
@@ -127,11 +138,13 @@ export function PlannerContainer() {
           'o1', 'o1-mini', 'o3', 'o3-mini', 'o4-mini',
         ].some((m) => model.startsWith(m));
 
+        const maxTokens = detailMode === 'long' ? 8192 : detailMode === 'medium' ? 6144 : 4096;
+
         const response = await openai.chat.completions.create({
           model,
           messages: messages as Parameters<typeof openai.chat.completions.create>[0]['messages'],
           response_format: { type: 'json_object' },
-          ...(useNewTokenParam ? { max_completion_tokens: 4096 } : { max_tokens: 4096 }),
+          ...(useNewTokenParam ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
         });
 
         const raw = response.choices[0]?.message?.content || '';
@@ -139,7 +152,7 @@ export function PlannerContainer() {
         const result = parseResponse(raw);
 
         setAnalysisResult(result);
-        setCache(schedules, energyLevel, selectedAdvisorIds, result);
+        setCache(schedules, energyLevel, idsToUse, result);
         updateCompletedCount(schedules.length);
       } catch (err: unknown) {
         const errMsg = err instanceof Error ? err.message : '알 수 없는 오류';
@@ -154,7 +167,20 @@ export function PlannerContainer() {
         setIsAnalyzing(false);
       }
     },
-    [apiKey, model, energyLevel, selectedAdvisors, selectedAdvisorIds, advisorTone, profile, getCached, setCache, updateCompletedCount, updateSchedules]
+    [apiKey, model, energyLevel, selectedAdvisorIds, advisorTone, profile, detailMode, setCache, updateCompletedCount, updateSchedules]
+  );
+
+  // ─── Advisor change → immediate re-generation ───
+  const handleAdvisorChange = useCallback(
+    (newIds: string[]) => {
+      setSelectedAdvisorIds(newIds);
+      setShowAdvisorSettings(false);
+      // Re-run analysis with new advisors using last schedules
+      if (lastSchedulesRef.current.length > 0) {
+        runAnalysis(lastSchedulesRef.current, newIds);
+      }
+    },
+    [setSelectedAdvisorIds, runAnalysis]
   );
 
   if (!isLoaded) return <div className="min-h-screen" style={{ background: 'var(--color-bg)' }} />;
@@ -174,7 +200,39 @@ export function PlannerContainer() {
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
         {/* ─── FORM VIEW ─── */}
         {view === 'form' && (
-          <QuickInput onAnalyze={runAnalysis} />
+          <>
+            {/* Mode selector */}
+            <div className="apple-card p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[15px] font-semibold" style={{ color: 'var(--color-text)' }}>
+                  📊 분석 모드
+                </span>
+              </div>
+              <div className="flex gap-2">
+                {(['short', 'medium', 'long'] as DetailMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setDetailMode(mode)}
+                    className="flex-1 py-2.5 rounded-xl text-[15px] font-semibold transition-all"
+                    style={{
+                      background: detailMode === mode ? 'var(--color-accent)' : 'var(--color-surface)',
+                      color: detailMode === mode ? '#fff' : 'var(--color-text-secondary)',
+                      border: detailMode === mode ? 'none' : '1px solid var(--color-border)',
+                    }}
+                  >
+                    {MODE_LABELS[mode]}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[13px] mt-2" style={{ color: 'var(--color-text-muted)' }}>
+                {detailMode === 'short' && '핵심만 간결하게'}
+                {detailMode === 'medium' && '에너지 차트 + 주요 브리핑 포함'}
+                {detailMode === 'long' && '전체 브리핑 + 에너지 차트 + 상세 분석'}
+              </p>
+            </div>
+
+            <QuickInput onAnalyze={runAnalysis} />
+          </>
         )}
 
         {/* ─── RESULT VIEW ─── */}
@@ -189,7 +247,18 @@ export function PlannerContainer() {
               >
                 ← 돌아가기
               </button>
-              {analysisResult && <ShareButton result={analysisResult} />}
+              <div className="flex items-center gap-3">
+                <span
+                  className="text-[14px] px-3 py-1 rounded-full font-medium"
+                  style={{
+                    background: 'var(--color-accent-light)',
+                    color: 'var(--color-accent)',
+                  }}
+                >
+                  {MODE_LABELS[detailMode]}
+                </span>
+                {analysisResult && <ShareButton result={analysisResult} />}
+              </div>
             </div>
 
             {/* Loading */}
@@ -199,7 +268,7 @@ export function PlannerContainer() {
             {error && (
               <div className="apple-card p-5 fade-in" style={{ borderLeft: '4px solid var(--color-danger)' }}>
                 <p className="text-[17px] mb-3" style={{ color: 'var(--color-text)' }}>{error}</p>
-                <button onClick={() => runAnalysis([])} className="btn-primary px-5 py-2.5">
+                <button onClick={() => runAnalysis(lastSchedulesRef.current)} className="btn-primary px-5 py-2.5">
                   다시 시도
                 </button>
               </div>
@@ -223,7 +292,17 @@ export function PlannerContainer() {
                   scheduleTips={analysisResult.schedule_tips}
                 />
 
-                {/* 3. Advisors — the main section */}
+                {/* 3. Energy Chart (medium/long only) */}
+                {analysisResult.energy_chart && analysisResult.energy_chart.length > 0 && (
+                  <EnergyChart data={analysisResult.energy_chart} />
+                )}
+
+                {/* 4. Briefings (medium/long only) */}
+                {analysisResult.briefings && analysisResult.briefings.length > 0 && (
+                  <BriefingList briefings={analysisResult.briefings} />
+                )}
+
+                {/* 5. Advisors — the main section */}
                 <AdvisorPanel
                   advisors={analysisResult.advisors}
                   tone={advisorTone}
@@ -231,7 +310,7 @@ export function PlannerContainer() {
                   onChangeAdvisors={() => setShowAdvisorSettings(true)}
                 />
 
-                {/* 4. Neuro summary — compact */}
+                {/* 6. Neuro summary — compact */}
                 {analysisResult.daily_neuro_summary && (
                   <div className="apple-card p-5 fade-in" style={{ borderLeft: '4px solid var(--color-neuro)' }}>
                     <p className="text-[17px] font-semibold mb-3" style={{ color: 'var(--color-text)' }}>
@@ -270,7 +349,7 @@ export function PlannerContainer() {
         onClose={() => setShowAdvisorSettings(false)}
         allAdvisors={ALL_ADVISORS}
         selectedIds={selectedAdvisorIds}
-        onSave={setSelectedAdvisorIds}
+        onSave={handleAdvisorChange}
       />
     </div>
   );

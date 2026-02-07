@@ -9,8 +9,8 @@
         "required": ["id", "start", "end", "title", "priority", "category"],
         "properties": {
           "id": { "type": "number" },
-          "start": { "type": "string", "pattern": "^\\d{2}:\\d{2}$" },
-          "end": { "type": "string", "pattern": "^\\d{2}:\\d{2}$" },
+          "start": { "type": "string" },
+          "end": { "type": "string" },
           "title": { "type": "string" },
           "priority": { "type": "string", "enum": ["high", "medium", "low"] },
           "category": { "type": "string", "enum": ["work", "family", "personal", "health"] }
@@ -19,13 +19,12 @@
     },
     "schedule_tips": {
       "type": "array",
-      "description": "필요한 일정에만. 준비물/리마인드/꿀팁.",
       "items": {
         "type": "object",
         "required": ["schedule_id", "tips"],
         "properties": {
           "schedule_id": { "type": "number" },
-          "tips": { "type": "array", "items": { "type": "string" }, "maxItems": 2 }
+          "tips": { "type": "array", "items": { "type": "string" } }
         }
       }
     },
@@ -38,7 +37,7 @@
         "required": ["name", "initials", "comment"],
         "properties": {
           "name": { "type": "string" },
-          "initials": { "type": "string", "maxLength": 2 },
+          "initials": { "type": "string" },
           "comment": { "type": "string" }
         }
       }
@@ -46,7 +45,6 @@
     "overall_tip": { "type": "string" },
     "neuro_tips": {
       "type": "array",
-      "maxItems": 3,
       "items": {
         "type": "object",
         "required": ["emoji", "label", "duration", "reason"],
@@ -58,6 +56,33 @@
         }
       }
     },
-    "daily_neuro_summary": { "type": "string" }
+    "daily_neuro_summary": { "type": "string" },
+    "energy_chart": {
+      "type": "array",
+      "description": "medium/long 모드에서만 제공",
+      "items": {
+        "type": "object",
+        "required": ["hour", "level", "label"],
+        "properties": {
+          "hour": { "type": "number" },
+          "level": { "type": "number", "minimum": 1, "maximum": 10 },
+          "label": { "type": "string" }
+        }
+      }
+    },
+    "briefings": {
+      "type": "array",
+      "description": "medium/long 모드에서만 제공",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "tip", "prep"],
+        "properties": {
+          "id": { "type": "number" },
+          "title": { "type": "string" },
+          "tip": { "type": "string" },
+          "prep": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
   }
 }

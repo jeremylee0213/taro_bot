@@ -1,4 +1,4 @@
-import { AnalysisResult, Priority, Category, TimelineEntry, ScheduleTip, AdvisorComment, NeuroSuggestion } from '@/types/schedule';
+import { AnalysisResult, Priority, Category, TimelineEntry, ScheduleTip, AdvisorComment, NeuroSuggestion, EnergyBlock, BriefingEntry } from '@/types/schedule';
 
 export function parseResponse(raw: string): AnalysisResult {
   try {
@@ -69,6 +69,25 @@ function normalizeResult(data: any): AnalysisResult {
       }))
     : [];
 
+  const energy_chart: EnergyBlock[] | undefined = Array.isArray(data.energy_chart)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ? data.energy_chart.map((e: any): EnergyBlock => ({
+        hour: (e.hour as number) ?? 9,
+        level: Math.min(10, Math.max(1, (e.level as number) ?? 5)),
+        label: (e.label as string) || '',
+      }))
+    : undefined;
+
+  const briefings: BriefingEntry[] | undefined = Array.isArray(data.briefings)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ? data.briefings.map((b: any): BriefingEntry => ({
+        id: (b.id as number) ?? 0,
+        title: (b.title as string) || '',
+        tip: (b.tip as string) || '',
+        prep: Array.isArray(b.prep) ? (b.prep as string[]) : [],
+      }))
+    : undefined;
+
   return {
     timeline,
     schedule_tips,
@@ -76,6 +95,8 @@ function normalizeResult(data: any): AnalysisResult {
     overall_tip: (data.overall_tip as string) || '',
     neuro_tips,
     daily_neuro_summary: (data.daily_neuro_summary as string) || '',
+    energy_chart,
+    briefings,
   };
 }
 
